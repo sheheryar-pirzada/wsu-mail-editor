@@ -1,9 +1,5 @@
-// editor.js - WSU Newsletter Editor v7.0.0 (COMPLETE & WORKING)
-// CHANGELOG v7.0.0:
-// - BREAKING: Array-based social links (unlimited platforms)
-// - ADDED: Section title alignment control
-// - ADDED: Collapsible sections in UI
-// - FIXED: Complete implementation of all features
+// editor.js - WSU Newsletter Editor
+// Features: array-based social links, title alignment, collapsible UI, auto-save
 
 // ============================================================
 // UTILITY FUNCTIONS
@@ -11,21 +7,35 @@
 
 function debounce(fn, ms = 300) {
   let timer;
-  return function(...args) {
+  return function (...args) {
     clearTimeout(timer);
     timer = setTimeout(() => fn.apply(this, args), ms);
   };
 }
 
 function setIframeHtml(iframe, html) {
-  const doc = iframe.contentDocument || iframe.contentWindow.document;
-  doc.open();
-  doc.write(html);
-  doc.close();
-  
-  setTimeout(() => {
-    iframe.style.height = Math.max(600, doc.body.scrollHeight) + 'px';
-  }, 100);
+  try {
+    // Prefer srcdoc to avoid cross-origin issues after user navigates inside the iframe
+    iframe.removeAttribute('src');
+    iframe.srcdoc = html;
+    setTimeout(() => {
+      const doc = iframe.contentDocument;
+      const h = (doc && doc.body && doc.body.scrollHeight) ? doc.body.scrollHeight : 600;
+      iframe.style.height = Math.max(600, h) + 'px';
+    }, 120);
+  } catch (e) {
+    // Fallback: reset to about:blank, then inject
+    try {
+      iframe.src = 'about:blank';
+      iframe.onload = () => {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open(); doc.write(html); doc.close();
+        iframe.style.height = Math.max(600, doc.body.scrollHeight) + 'px';
+      };
+    } catch (_) {
+      console.error('Preview iframe update failed:', e);
+    }
+  }
 }
 
 function clone(obj) {
@@ -68,68 +78,69 @@ function cleanHtml(html) {
   // Create temporary div to parse HTML
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  
+
   // Allowed tags - keep these, strip everything else
   const allowedTags = ['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'A', 'UL', 'OL', 'LI', 'H3'];
-  
+
   // Recursively clean nodes
   function cleanNode(node) {
     // If it's a text node, keep it
     if (node.nodeType === 3) {
       return node.cloneNode();
     }
-    
+
     // If it's an element node
     if (node.nodeType === 1) {
       const tagName = node.tagName.toUpperCase();
-      
+
       // If tag is not allowed, extract its children
       if (!allowedTags.includes(tagName)) {
         const fragment = document.createDocumentFragment();
-        Array.from(node.childNodes).forEach(child => {
+        Array.from(node.childNodes).forEach((child) => {
           const cleaned = cleanNode(child);
           if (cleaned) fragment.appendChild(cleaned);
         });
         return fragment;
       }
-      
+
       // Tag is allowed - create clean version
       const cleanElement = document.createElement(tagName);
-      
+
       // Only preserve href for links
       if (tagName === 'A' && node.href) {
         cleanElement.href = node.href;
       }
-      
+
       // Recursively clean children
-      Array.from(node.childNodes).forEach(child => {
+      Array.from(node.childNodes).forEach((child) => {
         const cleaned = cleanNode(child);
         if (cleaned) cleanElement.appendChild(cleaned);
       });
-      
+
       return cleanElement;
     }
-    
+
     return null;
   }
-  
+
   // Clean all children
   const fragment = document.createDocumentFragment();
-  Array.from(temp.childNodes).forEach(child => {
+  Array.from(temp.childNodes).forEach((child) => {
     const cleaned = cleanNode(child);
     if (cleaned) fragment.appendChild(cleaned);
   });
-  
+
   // Return cleaned HTML
   const result = document.createElement('div');
   result.appendChild(fragment);
   return result.innerHTML;
 }
 // ============================================================
-// AUTO-SAVE FUNCTIONALITY (v7.0.2)
+// AUTO-SAVE FUNCTIONALITY
 // ============================================================
 
 const EDITOR_INSTANCE_ID = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+const APP_VERSION = window.__VERSION__ || '7.0';
 const AUTO_SAVE_KEY = `wsu_newsletter_backup_${EDITOR_INSTANCE_ID}`;
 const AUTO_SAVE_TIME_KEY = `wsu_newsletter_backup_time_${EDITOR_INSTANCE_ID}`;
 const AUTO_SAVE_INTERVAL = 30000; // 30 seconds
@@ -141,22 +152,21 @@ function saveToLocalStorage() {
     const backup = {
       state: state,
       timestamp: new Date().toISOString(),
-      version: '7.0.2'
+      version: '7.0.2',
     };
-    
+
     localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(backup));
-    
+
     // Update badge
     const badge = document.querySelector('.badge');
     if (badge) {
       const now = new Date().toLocaleTimeString();
-      badge.textContent = `v7.0.2 - Auto-saved at ${now}`;
+      badge.textContent = `v${APP_VERSION} - Auto-saved at ${now}`;
       badge.style.color = '#28a745';
     }
-    
+
     hasUnsavedChanges = false;
     console.log('📦 Auto-saved to localStorage');
-    
   } catch (e) {
     console.warn('⚠️ Auto-save failed:', e);
     if (e.name === 'QuotaExceededError') {
@@ -169,24 +179,23 @@ function loadFromLocalStorage() {
   try {
     const backupStr = localStorage.getItem(AUTO_SAVE_KEY);
     if (!backupStr) return null;
-    
+
     const backup = JSON.parse(backupStr);
     const backupTime = new Date(backup.timestamp);
     const now = new Date();
     const ageMinutes = Math.floor((now - backupTime) / 60000);
-    
+
     // Only offer restore if backup is less than 24 hours old
     if (ageMinutes > 1440) {
       console.log('📦 Auto-save backup too old, ignoring');
       return null;
     }
-    
+
     return {
       data: backup.state,
       timestamp: backup.timestamp,
-      ageMinutes: ageMinutes
+      ageMinutes: ageMinutes,
     };
-    
   } catch (e) {
     console.warn('⚠️ Failed to load auto-save:', e);
     return null;
@@ -208,17 +217,17 @@ function startAutoSave() {
   if (autoSaveTimer) {
     clearInterval(autoSaveTimer);
   }
-  
+
   // Save immediately
   saveToLocalStorage();
-  
+
   // Then save every 30 seconds
   autoSaveTimer = setInterval(() => {
     if (hasUnsavedChanges) {
       saveToLocalStorage();
     }
   }, AUTO_SAVE_INTERVAL);
-  
+
   console.log('✅ Auto-save started (every 30 seconds)');
 }
 
@@ -231,11 +240,11 @@ function stopAutoSave() {
 
 function markChanged() {
   hasUnsavedChanges = true;
-  
+
   // Update badge
   const badge = document.querySelector('.badge');
   if (badge && !badge.textContent.includes('unsaved')) {
-    badge.textContent = 'v7.0.2 - unsaved changes';
+    badge.textContent = `v${APP_VERSION} - unsaved changes`;
     badge.style.color = '#ffc107';
   }
 }
@@ -361,8 +370,8 @@ const debouncedUpdate = debounce(updatePreview, 400);
 // ============================================================
 
 function init() {
-  console.log('🚀 WSU Newsletter Editor v7.0.2 initializing...');
-  
+  console.log(`🚀 WSU Newsletter Editor v${APP_VERSION} initializing...`);
+
   // NEW: Check for auto-save backup
   const backup = loadFromLocalStorage();
   if (backup) {
@@ -375,20 +384,23 @@ function init() {
       clearLocalStorage();
     }
   }
-  
+
   // Ensure state has all required properties
   initializeState();
-  
+
   // Bind all UI sections
   bindMasthead();
   bindSettings();
   renderSections();
   renderFooter();
-  
+
+  // Align color picker labels (fallback for browsers without :has())
+  applyInlineColorLabel();
+
   // Template selector
   templateSelect.value = state.template || 'ff';
   templateSelect.addEventListener('change', () => switchTemplate(templateSelect.value));
-  
+
   // Top bar buttons
   btnRefresh.addEventListener('click', updatePreview);
   btnExportHtml.addEventListener('click', exportHtml);
@@ -397,18 +409,18 @@ function init() {
   btnReset.addEventListener('click', resetToDefaults);
   btnImportHtml.addEventListener('click', () => importFileInput.click());
   importFileInput.addEventListener('change', importHtml);
-  
+
   if (btnValidate) btnValidate.addEventListener('click', runValidation);
   if (btnStats) btnStats.addEventListener('click', showStats);
-  
+
   // Rich text editor toolbar
-  document.querySelectorAll('.toolbar button[data-cmd]').forEach(btn => {
+  document.querySelectorAll('.toolbar button[data-cmd]').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.execCommand(btn.dataset.cmd, false, null);
       rteArea.focus();
     });
   });
-  
+
   document.getElementById('btnLink').addEventListener('click', () => {
     const url = prompt('Enter URL:');
     if (url) {
@@ -416,29 +428,29 @@ function init() {
       rteArea.focus();
     }
   });
-  
+
   document.getElementById('btnUL').addEventListener('click', () => {
     document.execCommand('insertUnorderedList');
     rteArea.focus();
   });
-  
+
   document.getElementById('btnOL').addEventListener('click', () => {
     document.execCommand('insertOrderedList');
     rteArea.focus();
   });
-  
+
   document.getElementById('btnClear').addEventListener('click', () => {
     rteArea.innerHTML = '';
     rteArea.focus();
   });
 
-// NEW: Paste cleaning
+  // NEW: Paste cleaning
   rteArea.addEventListener('paste', (e) => {
     e.preventDefault();
-    
+
     // Try to get HTML first, fallback to plain text
     let pastedContent = e.clipboardData.getData('text/html');
-    
+
     if (pastedContent) {
       // Clean the HTML
       const cleaned = cleanHtml(pastedContent);
@@ -451,12 +463,12 @@ function init() {
       document.execCommand('insertText', false, pastedContent);
     }
   });
-  
+
   // RTE modal controls
   rteClose.onclick = () => rteModal.classList.add('hidden');
   rteCancel.onclick = () => rteModal.classList.add('hidden');
   rteSave.onclick = saveRteContent;
-  
+
   // Plain text modal
   if (btnGeneratePlainText) {
     btnGeneratePlainText.addEventListener('click', generatePlainText);
@@ -470,13 +482,13 @@ function init() {
   }
   if (plainTextClose) plainTextClose.onclick = () => plainTextModal.classList.add('hidden');
   if (plainTextCancel) plainTextCancel.onclick = () => plainTextModal.classList.add('hidden');
-  
+
   // Validation modal
   if (validationClose) validationClose.onclick = () => validationModal.classList.add('hidden');
-  
+
   // Stats modal
   if (statsClose) statsClose.onclick = () => statsModal.classList.add('hidden');
-  
+
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
@@ -492,18 +504,27 @@ function init() {
       exportHtml();
     }
   });
-  
-// Initial preview
+
+  // Initial preview
   console.log('📸 Generating initial preview...');
   updatePreview();
-  
+
   // NEW: Start auto-save
   startAutoSave();
 }
 
+// Ensure labels that contain color inputs align inline across browsers
+function applyInlineColorLabel() {
+  document.querySelectorAll('label').forEach((label) => {
+    if (label.querySelector("input[type='color']")) {
+      label.classList.add('inlineColorLabel');
+    }
+  });
+}
+
 function initializeState() {
   console.log('🔧 Initializing state with V7 defaults...');
-  
+
   // Ensure settings exists
   if (!state.settings) {
     state.settings = {
@@ -513,16 +534,16 @@ function initializeState() {
       padding_text: { top: 20, right: 20, bottom: 20, left: 20 },
       padding_image: { top: 0, right: 15, bottom: 0, left: 0 },
       typography: { h2_size: 22, h3_size: 18, body_size: 16 },
-      colors: { primary: '#A60F2D', text_dark: '#2A3033', text_body: '#333333' }
+      colors: { primary: '#A60F2D', text_dark: '#2A3033', text_body: '#333333' },
     };
   }
-  
+
   // Ensure masthead has hero controls
   if (!state.masthead) state.masthead = {};
   if (typeof state.masthead.hero_show === 'undefined') state.masthead.hero_show = true;
   if (!state.masthead.hero_link) state.masthead.hero_link = '';
   if (!state.masthead.banner_align) state.masthead.banner_align = 'center';
-  
+
   // V7: Ensure footer.social is array
   if (!state.footer) state.footer = {};
   if (!state.footer.social || !Array.isArray(state.footer.social)) {
@@ -530,10 +551,10 @@ function initializeState() {
       state.footer.social = [];
     }
   }
-  
+
   // V7: Ensure sections have title_align
   if (state.sections) {
-    state.sections.forEach(section => {
+    state.sections.forEach((section) => {
       if (!section.layout) {
         section.layout = {
           padding_top: 18,
@@ -544,14 +565,14 @@ function initializeState() {
           divider_thickness: 2,
           divider_color: '#e0e0e0',
           divider_spacing: 24,
-          title_align: 'left'
+          title_align: 'left',
         };
       } else if (!section.layout.title_align) {
         section.layout.title_align = 'left';
       }
     });
   }
-  
+
   console.log('✅ State initialized');
 }
 
@@ -564,15 +585,18 @@ async function switchTemplate(templateType) {
     templateSelect.value = state.template || 'ff';
     return;
   }
-  
+
   pushHistory();
-  
+
   try {
     const response = await fetch(`/api/defaults/${templateType}`);
     if (response.ok) {
       state = await response.json();
       rebuildUI(false);
-      showToast(`Switched to ${templateType === 'ff' ? 'Friday Focus' : 'Briefing'} template`, 'success');
+      showToast(
+        `Switched to ${templateType === 'ff' ? 'Friday Focus' : 'Briefing'} template`,
+        'success'
+      );
     } else {
       showToast('Failed to load template defaults', 'error');
     }
@@ -590,7 +614,7 @@ async function resetToDefaults() {
 
 function rebuildUI(pushToHistory = true) {
   if (pushToHistory) pushHistory();
-  
+
   initializeState();
   bindMasthead();
   bindSettings();
@@ -607,7 +631,7 @@ window.addEventListener('load', init);
 
 function bindSettings() {
   console.log('🔧 Binding settings controls...');
-  
+
   // Section spacing
   const sectionSpacingInput = document.getElementById('section_spacing');
   if (sectionSpacingInput) {
@@ -617,7 +641,7 @@ function bindSettings() {
       updatePreview();
     });
   }
-  
+
   // Show borders checkbox
   const showBordersCheckbox = document.getElementById('show_section_borders');
   if (showBordersCheckbox) {
@@ -627,73 +651,76 @@ function bindSettings() {
       updatePreview();
     });
   }
-  
+
   // Global padding - Text
   const gTextTop = document.getElementById('g_text_pad_top');
   const gTextRight = document.getElementById('g_text_pad_right');
   const gTextBottom = document.getElementById('g_text_pad_bottom');
   const gTextLeft = document.getElementById('g_text_pad_left');
-  
+
   if (gTextTop && gTextRight && gTextBottom && gTextLeft) {
     gTextTop.value = state.settings.padding_text.top;
     gTextRight.value = state.settings.padding_text.right;
     gTextBottom.value = state.settings.padding_text.bottom;
     gTextLeft.value = state.settings.padding_text.left;
-    
+
     const updateTextPadding = () => {
       state.settings.padding_text = {
         top: parseInt(gTextTop.value || 0, 10),
         right: parseInt(gTextRight.value || 0, 10),
         bottom: parseInt(gTextBottom.value || 0, 10),
-        left: parseInt(gTextLeft.value || 0, 10)
+        left: parseInt(gTextLeft.value || 0, 10),
       };
       updatePreview();
     };
-    
+
     gTextTop.addEventListener('input', updateTextPadding);
     gTextRight.addEventListener('input', updateTextPadding);
     gTextBottom.addEventListener('input', updateTextPadding);
     gTextLeft.addEventListener('input', updateTextPadding);
   }
-  
+
   // Global padding - Image
   const gImgTop = document.getElementById('g_img_pad_top');
   const gImgRight = document.getElementById('g_img_pad_right');
   const gImgBottom = document.getElementById('g_img_pad_bottom');
   const gImgLeft = document.getElementById('g_img_pad_left');
-  
+
   if (gImgTop && gImgRight && gImgBottom && gImgLeft) {
     gImgTop.value = state.settings.padding_image.top;
     gImgRight.value = state.settings.padding_image.right;
     gImgBottom.value = state.settings.padding_image.bottom;
     gImgLeft.value = state.settings.padding_image.left;
-    
+
     const updateImgPadding = () => {
       state.settings.padding_image = {
         top: parseInt(gImgTop.value || 0, 10),
         right: parseInt(gImgRight.value || 0, 10),
         bottom: parseInt(gImgBottom.value || 0, 10),
-        left: parseInt(gImgLeft.value || 0, 10)
+        left: parseInt(gImgLeft.value || 0, 10),
       };
       updatePreview();
     };
-    
+
     gImgTop.addEventListener('input', updateImgPadding);
     gImgRight.addEventListener('input', updateImgPadding);
     gImgBottom.addEventListener('input', updateImgPadding);
     gImgLeft.addEventListener('input', updateImgPadding);
   }
-  
+
   // Container width
   const containerWidthInput = document.getElementById('container_width');
   if (containerWidthInput) {
     containerWidthInput.value = state.settings.container_width || 640;
     containerWidthInput.addEventListener('input', (e) => {
-      state.settings.container_width = Math.max(560, Math.min(700, parseInt(e.target.value || 640, 10)));
+      state.settings.container_width = Math.max(
+        560,
+        Math.min(700, parseInt(e.target.value || 640, 10))
+      );
       updatePreview();
     });
   }
-  
+
   console.log('✅ Settings controls bound');
 }
 
@@ -703,30 +730,30 @@ function bindSettings() {
 
 function bindMasthead() {
   console.log('🔧 Binding masthead controls...');
-  
+
   const mast = state.masthead || {};
-  
+
   mastBannerUrl.value = mast.banner_url || '';
   mastBannerAlt.value = mast.banner_alt || '';
   mastTitle.value = mast.title || '';
   mastTagline.value = mast.tagline || '';
   mastPreheader.value = mast.preheader || '';
-  
+
   if (heroShow) heroShow.checked = mast.hero_show !== false;
   if (heroLink) heroLink.value = mast.hero_link || '';
-  
+
   // Banner alignment control
   const bannerAlign = document.getElementById('banner_align');
   if (bannerAlign) {
     bannerAlign.value = mast.banner_align || 'center';
   }
-  
+
   // NEW: Banner padding controls
   const bannerPadTop = document.getElementById('banner_pad_top');
   const bannerPadRight = document.getElementById('banner_pad_right');
   const bannerPadBottom = document.getElementById('banner_pad_bottom');
   const bannerPadLeft = document.getElementById('banner_pad_left');
-  
+
   if (bannerPadTop && bannerPadRight && bannerPadBottom && bannerPadLeft) {
     const padding = mast.banner_padding || { top: 20, right: 0, bottom: 0, left: 0 };
     bannerPadTop.value = padding.top;
@@ -734,7 +761,7 @@ function bindMasthead() {
     bannerPadBottom.value = padding.bottom;
     bannerPadLeft.value = padding.left;
   }
-  
+
   const updateMasthead = () => {
     state.masthead = state.masthead || {};
     state.masthead.banner_url = mastBannerUrl.value;
@@ -745,60 +772,75 @@ function bindMasthead() {
     if (heroShow) state.masthead.hero_show = heroShow.checked;
     if (heroLink) state.masthead.hero_link = heroLink.value;
     if (bannerAlign) state.masthead.banner_align = bannerAlign.value;
-    
+
     // NEW: Save banner padding to state
     if (bannerPadTop) {
       state.masthead.banner_padding = {
         top: parseInt(bannerPadTop.value || 20, 10),
         right: parseInt(bannerPadRight.value || 0, 10),
         bottom: parseInt(bannerPadBottom.value || 0, 10),
-        left: parseInt(bannerPadLeft.value || 0, 10)
+        left: parseInt(bannerPadLeft.value || 0, 10),
       };
     }
-    
+
     markChanged();
   };
-  
-  mastBannerUrl.oninput = () => { updateMasthead(); debouncedUpdate(); };
-  mastBannerAlt.oninput = () => { updateMasthead(); debouncedUpdate(); };
-  mastTitle.oninput = () => { updateMasthead(); debouncedUpdate(); };
-  mastTagline.oninput = () => { updateMasthead(); debouncedUpdate(); };
-  
+
+  mastBannerUrl.oninput = () => {
+    updateMasthead();
+    debouncedUpdate();
+  };
+  mastBannerAlt.oninput = () => {
+    updateMasthead();
+    debouncedUpdate();
+  };
+  mastTitle.oninput = () => {
+    updateMasthead();
+    debouncedUpdate();
+  };
+  mastTagline.oninput = () => {
+    updateMasthead();
+    debouncedUpdate();
+  };
+
   if (heroShow) {
     heroShow.onchange = () => {
       updateMasthead();
       updatePreview();
     };
   }
-  
+
   if (heroLink) {
-    heroLink.oninput = () => { updateMasthead(); debouncedUpdate(); };
+    heroLink.oninput = () => {
+      updateMasthead();
+      debouncedUpdate();
+    };
   }
-  
+
   if (bannerAlign) {
     bannerAlign.onchange = () => {
       updateMasthead();
       updatePreview();
     };
   }
-  
+
   // NEW: Banner padding listeners
   if (bannerPadTop) {
     const updateBannerPadding = () => {
       updateMasthead();
       updatePreview();
     };
-    
+
     bannerPadTop.addEventListener('input', updateBannerPadding);
     bannerPadRight.addEventListener('input', updateBannerPadding);
     bannerPadBottom.addEventListener('input', updateBannerPadding);
     bannerPadLeft.addEventListener('input', updateBannerPadding);
   }
-  
+
   // Preheader counter
   const preheaderCounter = document.getElementById('preheaderCounter');
   const preheaderWarning = document.getElementById('preheaderWarning');
-  
+
   function updatePreheaderCounter() {
     const len = mastPreheader.value.length;
     if (preheaderCounter) preheaderCounter.textContent = len;
@@ -808,17 +850,17 @@ function bindMasthead() {
         preheaderCounter.style.color = '#dc3545';
       } else {
         preheaderWarning.style.display = 'none';
-        preheaderCounter.style.color = (len >= 40 ? '#28a745' : '#666');
+        preheaderCounter.style.color = len >= 40 ? '#28a745' : '#666';
       }
     }
   }
-  
+
   mastPreheader.oninput = () => {
     updateMasthead();
     updatePreheaderCounter();
     debouncedUpdate();
   };
-  
+
   updatePreheaderCounter();
   console.log('✅ Masthead controls bound');
 }
@@ -829,7 +871,7 @@ function bindMasthead() {
 
 function renderFooter() {
   console.log('🔧 Rendering footer with V7 array-based social links...');
-  
+
   state.footer = state.footer || {
     address_lines: [],
     social: [],
@@ -839,17 +881,17 @@ function renderFooter() {
     padding_top: 60,
     padding_bottom: 30,
     social_margin_top: 40,
-    social_margin_bottom: 20
+    social_margin_bottom: 20,
   };
-  
+
   // V7: Ensure social is array
   if (!Array.isArray(state.footer.social)) {
     state.footer.social = [];
   }
-  
+
   // Render address lines
   footerAddrs.innerHTML = '';
-  
+
   (state.footer.address_lines || []).forEach((line, idx) => {
     const row = document.createElement('div');
     row.className = 'row';
@@ -859,19 +901,19 @@ function renderFooter() {
       <button data-move="1" data-idx="${idx}">↓</button>
       <button class="danger" data-remove="${idx}">Remove</button>
     `;
-    
+
     const input = row.querySelector('input');
     input.oninput = (e) => {
       state.footer.address_lines[idx] = e.target.value;
       debouncedUpdate();
     };
-    
-    row.querySelectorAll('[data-move]').forEach(btn => {
+
+    row.querySelectorAll('[data-move]').forEach((btn) => {
       btn.onclick = () => {
         const i = parseInt(btn.dataset.idx, 10);
         const dir = parseInt(btn.dataset.move, 10);
         const newIdx = i + dir;
-        
+
         if (newIdx >= 0 && newIdx < state.footer.address_lines.length) {
           pushHistory();
           const temp = state.footer.address_lines[i];
@@ -882,17 +924,17 @@ function renderFooter() {
         }
       };
     });
-    
+
     row.querySelector('[data-remove]').onclick = () => {
       pushHistory();
       state.footer.address_lines.splice(idx, 1);
       renderFooter();
       updatePreview();
     };
-    
+
     footerAddrs.appendChild(row);
   });
-  
+
   btnAddAddr.onclick = () => {
     pushHistory();
     state.footer.address_lines = state.footer.address_lines || [];
@@ -900,14 +942,15 @@ function renderFooter() {
     renderFooter();
     updatePreview();
   };
-  
+
   // V7: Render dynamic social links array
   socialLinksContainer.innerHTML = '';
-  
+
   (state.footer.social || []).forEach((link, idx) => {
     const socialRow = document.createElement('div');
-    socialRow.style.cssText = 'border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin: 10px 0; background: #fafafa;';
-    
+    socialRow.style.cssText =
+      'border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin: 10px 0; background: #fafafa;';
+
     socialRow.innerHTML = `
       <div style="display: grid; grid-template-columns: 1fr 2fr 2fr auto auto auto; gap: 6px; align-items: center;">
         <input type="text" placeholder="Platform" value="${escapeHtml(link.platform || '')}" class="platform" />
@@ -918,28 +961,28 @@ function renderFooter() {
         <button class="danger" data-remove="1">Remove</button>
       </div>
     `;
-    
+
     socialRow.querySelector('.platform').oninput = (e) => {
       link.platform = e.target.value;
       link.alt = e.target.value;
       debouncedUpdate();
     };
-    
+
     socialRow.querySelector('.url').oninput = (e) => {
       link.url = e.target.value;
       debouncedUpdate();
     };
-    
+
     socialRow.querySelector('.icon').oninput = (e) => {
       link.icon = e.target.value;
       debouncedUpdate();
     };
-    
-    socialRow.querySelectorAll('[data-move]').forEach(btn => {
+
+    socialRow.querySelectorAll('[data-move]').forEach((btn) => {
       btn.onclick = () => {
         const dir = parseInt(btn.dataset.move, 10);
         const newIdx = idx + dir;
-        
+
         if (newIdx >= 0 && newIdx < state.footer.social.length) {
           pushHistory();
           const temp = state.footer.social[idx];
@@ -950,7 +993,7 @@ function renderFooter() {
         }
       };
     });
-    
+
     socialRow.querySelector('[data-remove]').onclick = () => {
       if (confirm(`Remove ${link.platform || 'this social link'}?`)) {
         pushHistory();
@@ -959,10 +1002,10 @@ function renderFooter() {
         updatePreview();
       }
     };
-    
+
     socialLinksContainer.appendChild(socialRow);
   });
-  
+
   // Add new social link button
   if (btnAddSocial) {
     btnAddSocial.onclick = () => {
@@ -972,40 +1015,40 @@ function renderFooter() {
         platform: 'Twitter',
         url: 'https://twitter.com/',
         icon: 'https://example.com/twitter-icon.png',
-        alt: 'Twitter'
+        alt: 'Twitter',
       });
       renderFooter();
       updatePreview();
       showToast('Social link added', 'success');
     };
   }
-  
+
   // Footer color controls
   footBgColor.value = state.footer.background_color || '#2A3033';
   footTextColor.value = state.footer.text_color || '#cccccc';
   footLinkColor.value = state.footer.link_color || '#ffffff';
-  
+
   footBgColor.addEventListener('input', (e) => {
     state.footer.background_color = e.target.value;
     updatePreview();
   });
-  
+
   footTextColor.addEventListener('input', (e) => {
     state.footer.text_color = e.target.value;
     updatePreview();
   });
-  
+
   footLinkColor.addEventListener('input', (e) => {
     state.footer.link_color = e.target.value;
     updatePreview();
   });
-  
+
   // Footer spacing controls
   const footPaddingTop = document.getElementById('foot_padding_top');
   const footPaddingBottom = document.getElementById('foot_padding_bottom');
   const footSocialMarginTop = document.getElementById('foot_social_margin_top');
   const footSocialMarginBottom = document.getElementById('foot_social_margin_bottom');
-  
+
   if (footPaddingTop) {
     footPaddingTop.value = state.footer.padding_top ?? 60;
     footPaddingTop.addEventListener('input', (e) => {
@@ -1014,7 +1057,7 @@ function renderFooter() {
       updatePreview();
     });
   }
-  
+
   if (footPaddingBottom) {
     footPaddingBottom.value = state.footer.padding_bottom ?? 30;
     footPaddingBottom.addEventListener('input', (e) => {
@@ -1023,7 +1066,7 @@ function renderFooter() {
       updatePreview();
     });
   }
-  
+
   if (footSocialMarginTop) {
     footSocialMarginTop.value = state.footer.social_margin_top ?? 40;
     footSocialMarginTop.addEventListener('input', (e) => {
@@ -1032,7 +1075,7 @@ function renderFooter() {
       updatePreview();
     });
   }
-  
+
   if (footSocialMarginBottom) {
     footSocialMarginBottom.value = state.footer.social_margin_bottom ?? 20;
     footSocialMarginBottom.addEventListener('input', (e) => {
@@ -1041,8 +1084,11 @@ function renderFooter() {
       updatePreview();
     });
   }
-  
+
   console.log('✅ Footer rendered with', state.footer.social?.length || 0, 'social links');
+
+  // Re-apply inline color label alignment after re-render
+  applyInlineColorLabel();
 }
 
 // ============================================================
@@ -1052,7 +1098,8 @@ function renderFooter() {
 function saveRteContent() {
   if (currentRteTarget) {
     currentRteTarget.card.body_html = rteArea.innerHTML;
-    currentRteTarget.bodyPreview.innerHTML = currentRteTarget.card.body_html || '<em>Click Edit to add content</em>';
+    currentRteTarget.bodyPreview.innerHTML =
+      currentRteTarget.card.body_html || '<em>Click Edit to add content</em>';
     updatePreview();
   }
   rteModal.classList.add('hidden');
@@ -1066,100 +1113,105 @@ function updatePreview() {
   // NEW: Show loading state
   previewFrame.style.opacity = '0.5';
   previewFrame.style.transition = 'opacity 0.2s';
-  
+
   fetch('/api/preview', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(state)
+    body: JSON.stringify(state),
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success && data.html) {
-      setIframeHtml(previewFrame, data.html);
-    } else {
-      console.error('Preview generation failed:', data.error);
-      showToast('Preview failed: ' + (data.error || 'Unknown error'), 'error');
-    }
-  })
-  .catch(error => {
-    console.error('Preview error:', error);
-    showToast('Preview error: ' + error.message, 'error');
-  })
-  .finally(() => {
-    // NEW: Hide loading state
-    previewFrame.style.opacity = '1';
-  });
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success && data.html) {
+        setIframeHtml(previewFrame, data.html);
+      } else {
+        console.error('Preview generation failed:', data.error);
+        showToast('Preview failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch((error) => {
+      console.error('Preview error:', error);
+      showToast('Preview error: ' + error.message, 'error');
+    })
+    .finally(() => {
+      // NEW: Hide loading state
+      previewFrame.style.opacity = '1';
+    });
 }
 
 function exportHtml() {
   const minify = document.getElementById('exportMinify')?.checked || false;
   const stripJSON = document.getElementById('exportStripJSON')?.checked || false;
-  
+
   fetch('/api/export', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       ...state,
-      export_options: { minify, strip_json: stripJSON }
+      export_options: { minify, strip_json: stripJSON },
+    }),
+  })
+    .then((response) => {
+      // V7.0.3: Check response size for Gmail clipping warning
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > 102400) {
+        showToast('⚠️ Newsletter exceeds 102KB - Gmail may clip it', 'warning');
+      }
+      return response.blob();
     })
-  })
-  .then(response => {
-    // V7.0.3: Check response size for Gmail clipping warning
-    const contentLength = response.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 102400) {
-      showToast('⚠️ Newsletter exceeds 102KB - Gmail may clip it', 'warning');
-    }
-    return response.blob();
-  })
-  .then(blob => {
-    // V7.0.3: Additional size check on blob
-    if (blob.size > 102400) {
-      console.warn(`📧 Export size: ${(blob.size / 1024).toFixed(1)}KB (Gmail clips at ~102KB)`);
-      showToast(`Export: ${(blob.size / 1024).toFixed(1)}KB - Gmail may clip content over 102KB`, 'warning');
-    }
-    
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = (state.template === 'ff' ? 'Friday_Focus_' : 'Briefing_') + 
-                 new Date().toISOString().slice(0, 10) + 
-                 (stripJSON ? '_PRODUCTION' : '') + '.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    if (blob.size <= 102400) {
-      showToast('HTML exported successfully', 'success');
-    }
-    
-    // Clear unsaved changes after successful export
-    hasUnsavedChanges = false;
-    saveToLocalStorage(); // Update backup
-  })
-  .catch(error => {
-    console.error('Export error:', error);
-    showToast('Export failed: ' + error.message, 'error');
-  });
+    .then((blob) => {
+      // V7.0.3: Additional size check on blob
+      if (blob.size > 102400) {
+        console.warn(`📧 Export size: ${(blob.size / 1024).toFixed(1)}KB (Gmail clips at ~102KB)`);
+        showToast(
+          `Export: ${(blob.size / 1024).toFixed(1)}KB - Gmail may clip content over 102KB`,
+          'warning'
+        );
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download =
+        (state.template === 'ff' ? 'Friday_Focus_' : 'Briefing_') +
+        new Date().toISOString().slice(0, 10) +
+        (stripJSON ? '_PRODUCTION' : '') +
+        '.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      if (blob.size <= 102400) {
+        showToast('HTML exported successfully', 'success');
+      }
+
+      // Clear unsaved changes after successful export
+      hasUnsavedChanges = false;
+      saveToLocalStorage(); // Update backup
+    })
+    .catch((error) => {
+      console.error('Export error:', error);
+      showToast('Export failed: ' + error.message, 'error');
+    });
 }
 
 function importHtml() {
   const file = importFileInput.files[0];
   if (!file) return;
-  
+
   const reader = new FileReader();
   reader.onload = async (e) => {
     const htmlContent = e.target.result;
-    
+
     try {
       const response = await fetch('/api/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html: htmlContent })
+        body: JSON.stringify({ html: htmlContent }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         pushHistory();
         state = result.data;
@@ -1172,10 +1224,10 @@ function importHtml() {
       console.error('Import error:', error);
       showToast('Import failed: ' + error.message, 'error');
     }
-    
+
     importFileInput.value = '';
   };
-  
+
   reader.readAsText(file);
 }
 
@@ -1188,11 +1240,11 @@ async function runValidation() {
     const response = await fetch('/api/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body: JSON.stringify(state),
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       displayValidationResults(result);
     } else {
@@ -1206,7 +1258,7 @@ async function runValidation() {
 
 function displayValidationResults(result) {
   const issues = result.issues || [];
-  
+
   if (issues.length === 0) {
     validationResults.innerHTML = `
       <div style="text-align:center; padding:40px;">
@@ -1217,7 +1269,7 @@ function displayValidationResults(result) {
   } else {
     const errorCount = result.errors || 0;
     const warningCount = result.warnings || 0;
-    
+
     let html = `
       <div style="background:#f8f9fa; padding:12px; border-radius:4px; margin-bottom:16px;">
         <strong>Found ${issues.length} issue(s):</strong>
@@ -1225,8 +1277,8 @@ function displayValidationResults(result) {
         ${warningCount > 0 ? `<span style="color:#ffc107; margin-left:12px;">${warningCount} warning(s)</span>` : ''}
       </div>
     `;
-    
-    issues.forEach(issue => {
+
+    issues.forEach((issue) => {
       const color = issue.severity === 'error' ? '#dc3545' : '#ffc107';
       html += `
         <div style="border-left:4px solid ${color}; background:#fff; padding:12px; margin-bottom:12px; border-radius:0 4px 4px 0;">
@@ -1239,10 +1291,10 @@ function displayValidationResults(result) {
         </div>
       `;
     });
-    
+
     validationResults.innerHTML = html;
   }
-  
+
   validationModal.classList.remove('hidden');
 }
 
@@ -1251,11 +1303,11 @@ async function showStats() {
     const response = await fetch('/api/stats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body: JSON.stringify(state),
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       displayStats(result.stats);
     } else {
@@ -1300,7 +1352,7 @@ function displayStats(stats) {
       <span style="color:#666;">Social Links: ${stats.social_links || 0}</span>
     </div>
   `;
-  
+
   statsModal.classList.remove('hidden');
 }
 
@@ -1309,11 +1361,11 @@ async function generatePlainText() {
     const response = await fetch('/api/generate_plaintext', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
+      body: JSON.stringify(state),
     });
-    
+
     const result = await response.json();
-    
+
     if (result.success) {
       plainTextArea.value = result.text;
       plainTextModal.classList.remove('hidden');
@@ -1333,9 +1385,9 @@ async function generatePlainText() {
 function renderSections() {
   console.log('🔧 Rendering sections...');
   sectionsContainer.innerHTML = '';
-  
+
   state.sections = state.sections || [];
-  
+
   state.sections.forEach((section, sIdx) => {
     if (!section.layout) {
       section.layout = {
@@ -1347,31 +1399,33 @@ function renderSections() {
         divider_thickness: 2,
         divider_color: '#e0e0e0',
         divider_spacing: 24,
-        title_align: 'left'
+        title_align: 'left',
       };
     } else if (!section.layout.title_align) {
       section.layout.title_align = 'left';
     }
-    
+
     // V7: Create collapsible wrapper
     const detailsWrapper = document.createElement('details');
     detailsWrapper.open = true;
-    detailsWrapper.style.cssText = 'margin-bottom: 16px; border: 2px dashed #ddd; border-radius: 8px; padding: 8px; background: #fafafa;';
-    
+    detailsWrapper.style.cssText =
+      'margin-bottom: 16px; border: 2px dashed #ddd; border-radius: 8px; padding: 8px; background: #fafafa;';
+
     const summary = document.createElement('summary');
-    summary.style.cssText = 'cursor: pointer; font-weight: 600; color: #333; padding: 8px; user-select: none; list-style: none;';
+    summary.style.cssText =
+      'cursor: pointer; font-weight: 600; color: #333; padding: 8px; user-select: none; list-style: none;';
     summary.innerHTML = `
       <span style="color: #A60F2D;">📄 ${escapeHtml(section.title || section.key)}</span>
       <span style="color: #999; font-weight: normal; font-size: 12px; margin-left: 8px;">
         (${section.cards?.length || 0} cards)
       </span>
     `;
-    
+
     detailsWrapper.appendChild(summary);
-    
+
     const secDiv = document.createElement('div');
     secDiv.className = 'sectionEditor';
-    
+
     secDiv.innerHTML = `
       <div class="sectionHeader">
         <span class="title">${escapeHtml(section.title || section.key)}</span>
@@ -1404,11 +1458,10 @@ function renderSections() {
             </label>
           </div>
           
-          <div class="row">
-            <label>Background Color
-              <input class="layout_bg_color" type="color" value="${section.layout.background_color || '#ffffff'}" />
-              <button class="layout_clear_bg" style="margin-left: 8px;">Clear</button>
-            </label>
+          <div class="colorRow">
+            <label>Background Color</label>
+            <input class="layout_bg_color" type="color" value="${section.layout.background_color || '#ffffff'}" />
+            <button class="layout_clear_bg" style="margin-left: 8px;">Clear</button>
           </div>
           
           <div class="row">
@@ -1443,10 +1496,9 @@ function renderSections() {
               </label>
             </div>
             
-            <div class="row">
-              <label>Divider Color
-                <input class="layout_divider_color" type="color" value="${section.layout.divider_color}" />
-              </label>
+            <div class="colorRow">
+              <label>Divider Color</label>
+              <input class="layout_divider_color" type="color" value="${section.layout.divider_color}" />
             </div>
             
             <div class="row">
@@ -1461,13 +1513,17 @@ function renderSections() {
       
       <div class="cards"></div>
       
-      ${section.key === 'closures' ? '' : `
+      ${
+        section.key === 'closures'
+          ? ''
+          : `
         <div class="btnRow">
           <button class="addCard" data-sidx="${sIdx}">+ Add Card</button>
         </div>
-      `}
+      `
+      }
     `;
-    
+
     // Section title editing
     secDiv.querySelector('.sec_title').oninput = (e) => {
       section.title = e.target.value;
@@ -1480,70 +1536,72 @@ function renderSections() {
       `;
       debouncedUpdate();
     };
-    
+
     // Section layout controls
     const layout = section.layout;
-    
+
     secDiv.querySelector('.layout_padding_top').addEventListener('input', (e) => {
       layout.padding_top = parseInt(e.target.value, 10) || 18;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_padding_bottom').addEventListener('input', (e) => {
       layout.padding_bottom = parseInt(e.target.value, 10) || 28;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_bg_color').addEventListener('input', (e) => {
       layout.background_color = e.target.value;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_clear_bg').addEventListener('click', () => {
       layout.background_color = '';
       secDiv.querySelector('.layout_bg_color').value = '#ffffff';
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_border_radius').addEventListener('input', (e) => {
       layout.border_radius = parseInt(e.target.value, 10) || 0;
       updatePreview();
     });
-    
+
     // V7: Title alignment
     secDiv.querySelector('.layout_title_align').addEventListener('change', (e) => {
       layout.title_align = e.target.value;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_divider_enabled').addEventListener('change', (e) => {
       layout.divider_enabled = e.target.checked;
-      secDiv.querySelector('.layout_divider_controls').style.display = e.target.checked ? 'block' : 'none';
+      secDiv.querySelector('.layout_divider_controls').style.display = e.target.checked
+        ? 'block'
+        : 'none';
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_divider_thickness').addEventListener('input', (e) => {
       layout.divider_thickness = parseInt(e.target.value, 10) || 2;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_divider_color').addEventListener('input', (e) => {
       layout.divider_color = e.target.value;
       updatePreview();
     });
-    
+
     secDiv.querySelector('.layout_divider_spacing').addEventListener('input', (e) => {
       layout.divider_spacing = parseInt(e.target.value, 10) || 24;
       updatePreview();
     });
-    
+
     // Section reordering
-    secDiv.querySelectorAll('[data-dir]').forEach(btn => {
+    secDiv.querySelectorAll('[data-dir]').forEach((btn) => {
       btn.onclick = () => {
         const i = parseInt(btn.dataset.sidx, 10);
         const dir = parseInt(btn.dataset.dir, 10);
         const newIdx = i + dir;
-        
+
         if (newIdx >= 0 && newIdx < state.sections.length) {
           pushHistory();
           const temp = state.sections[i];
@@ -1554,7 +1612,7 @@ function renderSections() {
         }
       };
     });
-    
+
     // Section removal
     secDiv.querySelector('[data-remove]').onclick = () => {
       if (confirm('Remove this entire section?')) {
@@ -1564,10 +1622,10 @@ function renderSections() {
         updatePreview();
       }
     };
-    
+
     // Render cards
     const cardsContainer = secDiv.querySelector('.cards');
-    
+
     if (section.key === 'closures') {
       renderClosures(cardsContainer, section, sIdx);
     } else {
@@ -1575,30 +1633,93 @@ function renderSections() {
       section.cards.forEach((card, cIdx) => {
         cardsContainer.appendChild(renderCard(section, sIdx, card, cIdx));
       });
-      
+
       const addCardBtn = secDiv.querySelector('.addCard');
       if (addCardBtn) {
         addCardBtn.onclick = () => addCard(sIdx);
       }
     }
-    
+
     detailsWrapper.appendChild(secDiv);
     sectionsContainer.appendChild(detailsWrapper);
   });
-  
+
   // Add new section button
-  const addSectionBtn = document.createElement('div');
-  addSectionBtn.className = 'btnRow';
-  addSectionBtn.innerHTML = '<button id="btnAddSection">+ Add New Section</button>';
-  addSectionBtn.querySelector('#btnAddSection').onclick = addNewSection;
-  sectionsContainer.appendChild(addSectionBtn);
-  
+  const addSectionBar = document.createElement('div');
+  addSectionBar.className = 'btnRow';
+  addSectionBar.innerHTML = `
+    <button id="btnAddSection">+ Add New Section</button>
+    <button id="btnAddCtaSection">+ Add CTA Section</button>
+  `;
+  addSectionBar.querySelector('#btnAddSection').onclick = addNewSection;
+  addSectionBar.querySelector('#btnAddCtaSection').onclick = addCtaSection;
+  sectionsContainer.appendChild(addSectionBar);
+
   console.log('✅ Sections rendered');
+
+  // Re-apply inline color label alignment after sections render
+  applyInlineColorLabel();
+}
+
+// Add a preconfigured CTA section so removed 'Submit to Friday Focus' can be re-added
+function addCtaSection() {
+  pushHistory();
+
+  const isBriefing = (state.template || 'ff') === 'briefing';
+  const meta = (state.settings && state.settings.meta) || {};
+  const ffUrl = meta.ff_submit_url || 'https://gradschool.wsu.edu/request-for-ff-promotion/';
+  const briefingUrl = meta.briefing_submit_url || 'https://gradschool.wsu.edu/listserv/';
+  const ctaSection = {
+    key: 'submit_request',
+    title: '',
+    layout: {
+      padding_top: 18,
+      padding_bottom: 28,
+      background_color: '',
+      border_radius: 0,
+      divider_enabled: true,
+      divider_thickness: 2,
+      divider_color: '#e0e0e0',
+      divider_spacing: 24,
+      title_align: 'left',
+    },
+    cards: [
+      {
+        type: 'cta',
+        title: isBriefing ? 'Submit Your Post' : 'Want to advertise in Friday Focus?',
+        body_html: isBriefing
+          ? '<p>Share your updates or announcements for the next Graduate School Briefing.</p>'
+          : '<p>Submit your events, announcements, and opportunities for the next newsletter.</p>',
+        button_bg_color: '#A60F2D',
+        button_text_color: '#ffffff',
+        button_padding_vertical: 12,
+        button_padding_horizontal: 32,
+        button_border_width: 0,
+        button_border_color: '#8c0d25',
+        button_border_radius: 10,
+        button_alignment: 'center',
+        button_full_width: false,
+        links: [
+          {
+            label: isBriefing ? 'Submit your post' : 'Please use this form',
+            url: isBriefing ? briefingUrl : ffUrl,
+          },
+        ],
+      },
+    ],
+  };
+
+  state.sections = state.sections || [];
+  state.sections.push(ctaSection);
+
+  renderSections();
+  updatePreview();
+  showToast('CTA section added', 'success');
 }
 
 function renderClosures(container, section, sIdx) {
   section.closures = section.closures || [];
-  
+
   const closuresDiv = document.createElement('div');
   closuresDiv.innerHTML = `
     <div class="row">
@@ -1609,9 +1730,9 @@ function renderClosures(container, section, sIdx) {
       </div>
     </div>
   `;
-  
+
   const closuresList = closuresDiv.querySelector('.closuresList');
-  
+
   section.closures.forEach((closure, cIdx) => {
     const row = document.createElement('div');
     row.className = 'row';
@@ -1620,45 +1741,45 @@ function renderClosures(container, section, sIdx) {
       <input type="text" placeholder="Reason" value="${escapeHtml(closure.reason || '')}" class="closureReason" style="flex:2;" />
       <button class="danger" data-remove="${cIdx}">Remove</button>
     `;
-    
+
     row.querySelector('.closureDate').oninput = (e) => {
       closure.date = e.target.value;
       debouncedUpdate();
     };
-    
+
     row.querySelector('.closureReason').oninput = (e) => {
       closure.reason = e.target.value;
       debouncedUpdate();
     };
-    
+
     row.querySelector('[data-remove]').onclick = () => {
       pushHistory();
       section.closures.splice(cIdx, 1);
       renderSections();
       updatePreview();
     };
-    
+
     closuresList.appendChild(row);
   });
-  
+
   closuresDiv.querySelector('.addClosure').onclick = () => {
     pushHistory();
     section.closures.push({ date: '', reason: '' });
     renderSections();
     updatePreview();
   };
-  
+
   container.appendChild(closuresDiv);
 }
 
 function addNewSection() {
   pushHistory();
-  
+
   const title = prompt('Enter section title:');
   if (!title) return;
-  
+
   const key = title.toLowerCase().replace(/\s+/g, '_');
-  
+
   state.sections.push({
     key: key,
     title: title,
@@ -1671,11 +1792,11 @@ function addNewSection() {
       divider_thickness: 2,
       divider_color: '#e0e0e0',
       divider_spacing: 24,
-      title_align: 'left'
+      title_align: 'left',
     },
-    cards: []
+    cards: [],
   });
-  
+
   renderSections();
   updatePreview();
   showToast('Section added', 'success');
@@ -1683,13 +1804,13 @@ function addNewSection() {
 
 function addCard(sIdx) {
   pushHistory();
-  
+
   const section = state.sections[sIdx];
   const isResource = section.key === 'resources';
-  const isCTA = section.key === 'advertise';
-  
+  const isCTA = section.key === 'submit_request';
+
   const newCard = {
-    type: isCTA ? 'cta' : (isResource ? 'resource' : 'standard'),
+    type: isCTA ? 'cta' : isResource ? 'resource' : 'standard',
     title: 'New Card',
     body_html: '',
     location: '',
@@ -1697,16 +1818,16 @@ function addCard(sIdx) {
     time: '',
     links: [],
     spacing_bottom: 20,
-    background_color: '#f9f9f9'
+    background_color: '#f9f9f9',
   };
-  
+
   if (isResource) {
     newCard.show_icon = false;
     newCard.icon_url = '';
     newCard.icon_alt = '';
     newCard.icon_size = 80;
   }
-  
+
   if (isCTA) {
     newCard.button_bg_color = '#A60F2D';
     newCard.button_text_color = '#ffffff';
@@ -1718,10 +1839,10 @@ function addCard(sIdx) {
     newCard.button_alignment = 'center';
     newCard.button_full_width = false;
   }
-  
+
   section.cards = section.cards || [];
   section.cards.push(newCard);
-  
+
   renderSections();
   updatePreview();
   showToast('Card added', 'success');
@@ -1731,10 +1852,10 @@ function renderCard(section, sIdx, card, cIdx) {
   const isResource = section.key === 'resources';
   const isEvent = section.key === 'events';
   const isCTA = card.type === 'cta';
-  
+
   const cardDiv = document.createElement('div');
   cardDiv.className = 'cardItem';
-  
+
   cardDiv.innerHTML = `
     <div class="cardHead">
       <span class="titleText">${escapeHtml(card.title || '(untitled)')}</span>
@@ -1751,7 +1872,9 @@ function renderCard(section, sIdx, card, cIdx) {
         <input class="titleInput" type="text" value="${escapeHtml(card.title || '')}" />
       </label>
       
-      ${!isCTA ? `
+      ${
+        !isCTA
+          ? `
       <div class="row">
         <label>Location
           <input class="locationInput" type="text" value="${escapeHtml(card.location || '')}" />
@@ -1769,9 +1892,13 @@ function renderCard(section, sIdx, card, cIdx) {
           <input class="timeInput" type="text" placeholder="e.g., 2:00 PM – 4:00 PM" value="${escapeHtml(card.time || '')}" />
         </label>
       </div>
-      ` : ''}
+      `
+          : ''
+      }
       
-      ${isResource ? `
+      ${
+        isResource
+          ? `
         <div class="row">
           <label>
             <input type="checkbox" class="iconToggle" ${card.show_icon ? 'checked' : ''} />
@@ -1798,21 +1925,23 @@ function renderCard(section, sIdx, card, cIdx) {
             </select>
           </label>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
       
-      ${isCTA ? `
+      ${
+        isCTA
+          ? `
         <h4 style="margin: 16px 0 8px 0;">CTA Button Settings</h4>
         
-        <div class="row">
-          <label>Button Background Color
-            <input class="btnBgColor" type="color" value="${card.button_bg_color || '#A60F2D'}" />
-          </label>
+        <div class="colorRow">
+          <label>Button Background Color</label>
+          <input class="btnBgColor" type="color" value="${card.button_bg_color || '#A60F2D'}" />
         </div>
         
-        <div class="row">
-          <label>Button Text Color
-            <input class="btnTextColor" type="color" value="${card.button_text_color || '#ffffff'}" />
-          </label>
+        <div class="colorRow">
+          <label>Button Text Color</label>
+          <input class="btnTextColor" type="color" value="${card.button_text_color || '#ffffff'}" />
         </div>
         
         <div class="row">
@@ -1834,6 +1963,16 @@ function renderCard(section, sIdx, card, cIdx) {
         </div>
         
         <div class="row">
+          <label>Text Alignment
+            <select class="ctaTextAlign">
+              <option value="left" ${card.text_alignment === 'left' || !card.text_alignment ? 'selected' : ''}>Left</option>
+              <option value="center" ${card.text_alignment === 'center' ? 'selected' : ''}>Center</option>
+              <option value="right" ${card.text_alignment === 'right' ? 'selected' : ''}>Right</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="row">
           <label>Button Alignment
             <select class="btnAlign">
               <option value="left" ${card.button_alignment === 'left' ? 'selected' : ''}>Left</option>
@@ -1849,7 +1988,9 @@ function renderCard(section, sIdx, card, cIdx) {
             Full Width Button
           </label>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
       
       <div class="row">
         <label>Body Content
@@ -1889,7 +2030,7 @@ function renderCard(section, sIdx, card, cIdx) {
       </details>
     </div>
   `;
-  
+
   const titleInput = cardDiv.querySelector('.titleInput');
   const titleText = cardDiv.querySelector('.titleText');
   titleInput.oninput = (e) => {
@@ -1897,103 +2038,111 @@ function renderCard(section, sIdx, card, cIdx) {
     titleText.textContent = e.target.value || '(untitled)';
     debouncedUpdate();
   };
-  
+
   // Location, date, time
   if (!isCTA) {
     cardDiv.querySelector('.locationInput').oninput = (e) => {
       card.location = e.target.value;
       debouncedUpdate();
     };
-    
+
     cardDiv.querySelector('.dateInput').oninput = (e) => {
       card.date = e.target.value;
       debouncedUpdate();
     };
-    
+
     cardDiv.querySelector('.timeInput').oninput = (e) => {
       card.time = e.target.value;
       debouncedUpdate();
     };
   }
-  
+
   // Resource icon controls
   if (isResource) {
     cardDiv.querySelector('.iconToggle').onchange = (e) => {
       card.show_icon = e.target.checked;
       updatePreview();
     };
-    
+
     cardDiv.querySelector('.iconUrl').oninput = (e) => {
       card.icon_url = e.target.value;
       debouncedUpdate();
     };
-    
+
     cardDiv.querySelector('.iconAlt').oninput = (e) => {
       card.icon_alt = e.target.value;
       debouncedUpdate();
     };
-    
+
     cardDiv.querySelector('.iconSize').onchange = (e) => {
       card.icon_size = parseInt(e.target.value, 10);
       updatePreview();
     };
   }
-  
+
   // CTA button controls
   if (isCTA) {
     cardDiv.querySelector('.btnBgColor').addEventListener('input', (e) => {
       card.button_bg_color = e.target.value;
       updatePreview();
     });
-    
+
     cardDiv.querySelector('.btnTextColor').addEventListener('input', (e) => {
       card.button_text_color = e.target.value;
       updatePreview();
     });
-    
+
     cardDiv.querySelector('.btnPadVert').addEventListener('input', (e) => {
       card.button_padding_vertical = parseInt(e.target.value, 10) || 12;
       updatePreview();
     });
-    
+
     cardDiv.querySelector('.btnPadHoriz').addEventListener('input', (e) => {
       card.button_padding_horizontal = parseInt(e.target.value, 10) || 32;
       updatePreview();
     });
-    
+
     cardDiv.querySelector('.btnBorderRadius').addEventListener('input', (e) => {
       card.button_border_radius = parseInt(e.target.value, 10) || 10;
       updatePreview();
     });
-    
+
     cardDiv.querySelector('.btnAlign').addEventListener('change', (e) => {
       card.button_alignment = e.target.value;
       updatePreview();
     });
     
+    const ctaTextAlignSel = cardDiv.querySelector('.ctaTextAlign');
+    if (ctaTextAlignSel) {
+      ctaTextAlignSel.addEventListener('change', (e) => {
+        card.text_alignment = e.target.value;
+        updatePreview();
+      });
+    }
+
     cardDiv.querySelector('.btnFullWidth').addEventListener('change', (e) => {
       card.button_full_width = e.target.checked;
       updatePreview();
     });
   }
-  
+
   // Card styling controls
   cardDiv.querySelector('.cardBgColor').addEventListener('input', (e) => {
     card.background_color = e.target.value;
     updatePreview();
   });
-  
+
   cardDiv.querySelector('.cardClearBg').addEventListener('click', () => {
     card.background_color = '';
     cardDiv.querySelector('.cardBgColor').value = '#f9f9f9';
     updatePreview();
   });
-  
+
   cardDiv.querySelector('.cardSpacing').addEventListener('input', (e) => {
     card.spacing_bottom = parseInt(e.target.value, 10) || 20;
     updatePreview();
   });
-  
+
   const bodyPreview = cardDiv.querySelector('.rtePreview');
   cardDiv.querySelector('.editRte').onclick = () => {
     pushHistory();
@@ -2002,7 +2151,7 @@ function renderCard(section, sIdx, card, cIdx) {
     rteModal.classList.remove('hidden');
     rteArea.focus();
   };
-  
+
   cardDiv.querySelector('.duplicateCard').onclick = () => {
     pushHistory();
     const duplicate = clone(card);
@@ -2012,7 +2161,7 @@ function renderCard(section, sIdx, card, cIdx) {
     updatePreview();
     showToast('Card duplicated', 'success');
   };
-  
+
   cardDiv.querySelector('[data-remove]').onclick = () => {
     if (confirm('Remove this card?')) {
       pushHistory();
@@ -2022,12 +2171,12 @@ function renderCard(section, sIdx, card, cIdx) {
       showToast('Card removed', 'info');
     }
   };
-  
-  cardDiv.querySelectorAll('[data-move]').forEach(btn => {
+
+  cardDiv.querySelectorAll('[data-move]').forEach((btn) => {
     btn.onclick = () => {
       const dir = parseInt(btn.dataset.move, 10);
       const newIdx = cIdx + dir;
-      
+
       if (newIdx >= 0 && newIdx < section.cards.length) {
         pushHistory();
         const temp = section.cards[cIdx];
@@ -2038,27 +2187,29 @@ function renderCard(section, sIdx, card, cIdx) {
       }
     };
   });
-  
+
   renderCardLinks(cardDiv, card);
-  
+
   return cardDiv;
 }
 
 function renderCardLinks(cardDiv, card) {
   card.links = card.links || [];
-  
+
   const linksList = cardDiv.querySelector('.linksList');
   linksList.innerHTML = '';
-  
+
   // Show bullet indicator if 2+ links
   const showBullets = card.links.length >= 2;
-  
+
   card.links.forEach((link, lIdx) => {
     const linkRow = document.createElement('div');
     linkRow.className = 'row';
-    
-    const bulletIndicator = showBullets ? '<span style="margin-right: 8px; font-weight: bold;">•</span>' : '';
-    
+
+    const bulletIndicator = showBullets
+      ? '<span style="margin-right: 8px; font-weight: bold;">•</span>'
+      : '';
+
     linkRow.innerHTML = `
       ${bulletIndicator}
       <input type="text" placeholder="Label" value="${escapeHtml(link.label || '')}" class="linkLabel" />
@@ -2067,25 +2218,25 @@ function renderCardLinks(cardDiv, card) {
       <button class="secondary" data-move="1" ${lIdx === card.links.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
       <button class="danger" data-remove="${lIdx}">Remove</button>
     `;
-    
+
     linkRow.querySelector('.linkLabel').oninput = (e) => {
       link.label = e.target.value;
       debouncedUpdate();
       markChanged();
     };
-    
+
     linkRow.querySelector('.linkUrl').oninput = (e) => {
       link.url = e.target.value;
       debouncedUpdate();
       markChanged();
     };
-    
+
     // Link reordering
-    linkRow.querySelectorAll('[data-move]').forEach(btn => {
+    linkRow.querySelectorAll('[data-move]').forEach((btn) => {
       btn.onclick = () => {
         const dir = parseInt(btn.dataset.move, 10);
         const newIdx = lIdx + dir;
-        
+
         if (newIdx >= 0 && newIdx < card.links.length) {
           pushHistory();
           const temp = card.links[lIdx];
@@ -2096,17 +2247,17 @@ function renderCardLinks(cardDiv, card) {
         }
       };
     });
-    
+
     linkRow.querySelector('[data-remove]').onclick = () => {
       pushHistory();
       card.links.splice(lIdx, 1);
       renderCardLinks(cardDiv, card);
       updatePreview();
     };
-    
+
     linksList.appendChild(linkRow);
   });
-  
+
   cardDiv.querySelector('.addLink').onclick = () => {
     pushHistory();
     card.links.push({ label: '', url: '' });
@@ -2115,4 +2266,4 @@ function renderCardLinks(cardDiv, card) {
   };
 }
 
-console.log('✅ WSU Newsletter Editor v7.0.0 fully loaded');
+console.log(`✅ WSU Newsletter Editor v${APP_VERSION} loaded`);

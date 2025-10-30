@@ -1,40 +1,20 @@
-# styles.py - Email-safe inline styles for WSU newsletters (v7.0.0)
+# styles.py - Email-safe inline styles for WSU newsletters
 """
-CHANGELOG v7.0.0:
-- REMOVED: Dark mode CSS (better email client compatibility)
-- NOTE: Focus on universal email client support
+Note: Focus on universal email client support (no dark-mode CSS for compatibility)
 """
 
 # Brand Colors
-CRIMSON = '#A60F2D'
-DARK_CRIMSON = '#8c0d25'
-TEXT_DARK = '#2A3033'
-TEXT_BODY = '#333333'
-TEXT_MUTED = '#5E6A71'
-BG_LIGHT = '#f4f4f4'
-BG_CARD = '#f9f9f9'
-BG_WHITE = '#ffffff'
-BORDER_LIGHT = '#e0e0e0'
-BORDER_MEDIUM = '#d9d9d9'
+CRIMSON = "#A60F2D"
+DARK_CRIMSON = "#8c0d25"
+TEXT_DARK = "#2A3033"
+TEXT_BODY = "#333333"
+TEXT_MUTED = "#5E6A71"
+BG_LIGHT = "#f4f4f4"
+BG_CARD = "#f9f9f9"
+BG_WHITE = "#ffffff"
+BORDER_LIGHT = "#e0e0e0"
+BORDER_MEDIUM = "#d9d9d9"
 
-# Social Media Defaults (with icons)
-SOCIAL_DEFAULTS = {
-    'instagram': {
-        'url': 'https://www.instagram.com/gradschoolwsu/',
-        'icon': 'https://futurecoug.wsu.edu/www/images/insta%20icon%20.png',
-        'alt': 'Instagram'
-    },
-    'linkedin': {
-        'url': 'https://www.linkedin.com/school/washington-state-university-graduate-school/',
-        'icon': 'https://futurecoug.wsu.edu/www/images/Lin%20icon.png',
-        'alt': 'LinkedIn'
-    },
-    'facebook': {
-        'url': 'https://www.facebook.com/WsuGraduateSchool/',
-        'icon': 'https://futurecoug.wsu.edu/www/images/facebook%20icon.png',
-        'alt': 'Facebook'
-    }
-}
 
 # Common inline style strings
 STYLE_RESET = "margin:0; padding:0; -ms-text-size-adjust:100%; -webkit-text-size-adjust:100%;"
@@ -59,19 +39,7 @@ STYLE_CARD_ACCENT = f"width:4px; background-color:{CRIMSON};"
 
 STYLE_CARD_BODY = "padding:20px;"
 
-STYLE_ICON_CELL = "width:95px; padding-right:15px; vertical-align:top;"
-
-STYLE_ICON_IMG = "width:80px; height:80px; border-radius:6px;"
-
-STYLE_CTA_BOX = f"background-color:{BG_CARD}; border:2px solid {BORDER_LIGHT}; border-radius:4px; text-align:center; padding:30px 20px;"
-
-STYLE_CTA_BUTTON = f"background-color:{CRIMSON}; border-radius:4px; color:{BG_WHITE}; display:inline-block; font-weight:bold; font-size:16px; line-height:44px; text-align:center; text-decoration:none; padding:0 24px;"
-
-STYLE_FOOTER = f"background-color:{TEXT_DARK}; color:#cccccc; text-align:center; padding:40px 20px 30px 20px;"
-
-STYLE_FOOTER_TEXT = "color:#cccccc; font-size:14px; line-height:1.6; margin:0."
-
-STYLE_FOOTER_LINK = "color:#ffffff; text-decoration:underline;"
+STYLE_FOOTER_TEXT = "color:#cccccc; font-size:14px; line-height:1.6; margin:0;"
 
 STYLE_SOCIAL_ICON_CELL = "padding:0 8px;"
 

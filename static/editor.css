@@ -1,4 +1,4 @@
-/* WSU Newsletter Editor Styles v7.0.0 - Collapsible UI */
+/* WSU Newsletter Editor Styles - Collapsible UI */
 
 /* ========================================
    RESET & BASE
@@ -36,7 +36,7 @@ body {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #A60F2D;
+  color: #a60f2d;
 }
 
 .topbar .left {
@@ -100,7 +100,7 @@ body {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #2A3033;
+  color: #2a3033;
 }
 
 .group label {
@@ -126,7 +126,7 @@ body {
 .group select:focus,
 .group textarea:focus {
   outline: none;
-  border-color: #A60F2D;
+  border-color: #a60f2d;
   box-shadow: 0 0 0 3px rgba(166, 15, 45, 0.1);
 }
 
@@ -146,7 +146,7 @@ body {
 }
 
 h4 {
-  color: #5E6A71;
+  color: #5e6a71;
   font-weight: 600;
   border-bottom: 1px solid #e0e0e0;
   padding-bottom: 8px;
@@ -163,7 +163,7 @@ h4 {
 .socialMediaGroup strong {
   display: block;
   margin-bottom: 8px;
-  color: #A60F2D;
+  color: #a60f2d;
   font-size: 13px;
 }
 
@@ -253,7 +253,7 @@ h4 {
 .sectionHeader .title {
   font-weight: 700;
   font-size: 15px;
-  color: #A60F2D;
+  color: #a60f2d;
 }
 
 /* Dynamic sections also collapsible */
@@ -313,9 +313,9 @@ h4 {
   font-weight: 500;
 }
 
-.cardFields input[type="text"],
-.cardFields input[type="url"],
-.cardFields input[type="number"] {
+.cardFields input[type='text'],
+.cardFields input[type='url'],
+.cardFields input[type='number'] {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid #ddd;
@@ -336,7 +336,7 @@ h4 {
 
 .rtePreview:hover,
 .rtePreview:focus {
-  border-color: #A60F2D;
+  border-color: #a60f2d;
   outline: none;
 }
 
@@ -378,13 +378,13 @@ h4 {
 
 .cardAdvancedControls summary {
   font-weight: 600;
-  color: #5E6A71;
+  color: #5e6a71;
   cursor: pointer;
   user-select: none;
 }
 
 .cardAdvancedControls summary:hover {
-  color: #A60F2D;
+  color: #a60f2d;
 }
 
 /* ========================================
@@ -443,7 +443,7 @@ button:active {
 }
 
 button.primary {
-  background: #A60F2D;
+  background: #a60f2d;
   color: #fff;
   border-color: #8c0d25;
 }
@@ -643,11 +643,11 @@ button .duplicateCard {
   .grid {
     grid-template-columns: 1fr;
   }
-  
+
   .preview {
     display: none;
   }
-  
+
   .editor {
     max-height: none;
   }
@@ -658,17 +658,17 @@ button .duplicateCard {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .topbar .left,
   .topbar .right {
     width: 100%;
     justify-content: center;
   }
-  
+
   .editor {
     padding: 12px;
   }
-  
+
   .modalInner {
     width: 95%;
     max-height: 90vh;
@@ -795,7 +795,7 @@ details[open] summary {
 .stat-value {
   font-size: 32px;
   font-weight: bold;
-  color: #A60F2D;
+  color: #a60f2d;
 }
 
 .stat-label {
@@ -808,41 +808,84 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #A60F2D;
+  outline: 2px solid #a60f2d;
   outline-offset: 2px;
 }
 
 /* Improved checkbox/radio styling */
-input[type="checkbox"],
-input[type="radio"] {
+input[type='checkbox'],
+input[type='radio'] {
   width: auto;
   margin-right: 6px;
   cursor: pointer;
 }
 
 /* Color input styling */
-input[type="color"] {
+input[type='color'] {
   height: 40px;
   cursor: pointer;
   padding: 2px;
 }
 
-input[type="color"]::-webkit-color-swatch-wrapper {
+input[type='color']::-webkit-color-swatch-wrapper {
   padding: 2px;
 }
 
-input[type="color"]::-webkit-color-swatch {
+input[type='color']::-webkit-color-swatch {
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
+/* Align labels that contain color pickers on a single line */
+label:has(> input[type='color']) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+label:has(> input[type='color']) input[type='color'] {
+  margin-top: 0; /* override generic input margin */
+}
+
+/* JS fallback class for browsers that don't support :has() */
+.inlineColorLabel {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.inlineColorLabel > input[type='color'] {
+  margin-top: 0 !important;
+}
+
+/* Two-column row for label + color input alignment */
+.colorRow {
+  display: grid;
+  grid-template-columns: 180px max-content; /* consistent label width + compact control */
+  align-items: center;
+  column-gap: 12px;
+  margin: 10px 0;
+}
+
+.colorRow > label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.colorRow > input[type='color'] {
+  margin: 0;
+  width: 44px;               /* override generic .group input width: 100% */
+  height: 40px;
+  padding: 0;
+}
+
 /* Number input styling */
-input[type="number"] {
+input[type='number'] {
   -moz-appearance: textfield;
 }
 
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -862,14 +905,16 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 20px;
   height: 20px;
   margin: -10px 0 0 -10px;
-  border: 2px solid #A60F2D;
+  border: 2px solid #a60f2d;
   border-radius: 50%;
   border-top-color: transparent;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Print styles */
@@ -878,12 +923,12 @@ input[type="number"]::-webkit-outer-spin-button {
   .preview {
     display: none;
   }
-  
+
   .editor {
     max-height: none;
     overflow: visible;
   }
-  
+
   .group {
     break-inside: avoid;
   }

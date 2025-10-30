@@ -1,0 +1,26 @@
+{
+  "name": "gs-slate-editor-v7",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --write static/**/*.{js,css} templates/**/*.html",
+    "checkfmt": "prettier -c static/**/*.{js,css} templates/**/*.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gcrouch-wsu/WSU-Mail-Editor.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gcrouch-wsu/WSU-Mail-Editor/issues"
+  },
+  "homepage": "https://github.com/gcrouch-wsu/WSU-Mail-Editor#readme",
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}
