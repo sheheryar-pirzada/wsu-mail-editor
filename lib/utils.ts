@@ -19,7 +19,7 @@ export function debounce<T extends (...args: any[]) => any>(
   let timer: NodeJS.Timeout | null = null
   return function (...args: Parameters<T>) {
     if (timer) clearTimeout(timer)
-    timer = setTimeout(() => fn.apply(this, args), ms)
+    timer = setTimeout(() => fn(...args), ms)
   }
 }
 
