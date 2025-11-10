@@ -1,0 +1,598 @@
+// app/editor/page.tsx - Main editor page
+
+'use client'
+
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { useNewsletterState } from './hooks/useNewsletterState'
+import { usePreview } from './hooks/usePreview'
+import PreviewPanel from '@/components/editor/PreviewPanel'
+import EditorPanel from '@/components/editor/EditorPanel'
+import type { NewsletterData } from '@/types/newsletter'
+import { defaultFFModel } from '@/lib/defaults'
+import {
+  Download,
+  Upload,
+  CheckCircle,
+  BarChart3,
+  FileText,
+  X,
+} from 'lucide-react'
+
+export default function EditorPage() {
+  // All hooks must be called unconditionally at the top level
+  const [templateType, setTemplateType] = useState<'ff' | 'briefing'>('ff')
+  const [initialData, setInitialData] = useState<NewsletterData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showValidation, setShowValidation] = useState(false)
+  const [showStats, setShowStats] = useState(false)
+  const [validationResult, setValidationResult] = useState<any>(null)
+  const [statsResult, setStatsResult] = useState<any>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const hasLoadedInitialPreview = useRef(false)
+  const previousTemplateRef = useRef<'ff' | 'briefing' | null>(null)
+  const previousStateTemplateRef = useRef<string | null>(null)
+
+  // Create a stable default model - memoize it so it doesn't change on every render
+  const defaultModel = useMemo(() => defaultFFModel(), [])
+  
+  // Always pass a valid NewsletterData object to avoid hook ordering issues
+  // Use nullish coalescing to ensure we always have valid data
+  // Memoize to ensure stable reference when initialData hasn't changed
+  const effectiveInitialData = useMemo(() => {
+    return initialData ?? defaultModel
+  }, [initialData, defaultModel])
+  
+  const {
+    state,
+    updateState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    resetState,
+  } = useNewsletterState(effectiveInitialData)
+
+  const { html, loading: previewLoading, updatePreview, debouncedUpdatePreview } =
+    usePreview()
+
+  // Load initial data
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        let restoredFromBackup = false
+        
+        // Check for auto-save backup only once per session
+        const backupCheckedKey = 'wsu_newsletter_backup_checked'
+        const hasCheckedBackup = sessionStorage.getItem(backupCheckedKey)
+        
+        if (!hasCheckedBackup) {
+          // Mark as checked to prevent repeated prompts in this session
+          sessionStorage.setItem(backupCheckedKey, 'true')
+          
+          const backupStr = localStorage.getItem('wsu_newsletter_backup')
+          if (backupStr) {
+            try {
+              const backup = JSON.parse(backupStr)
+              const backupTime = new Date(backup.timestamp)
+              const now = new Date()
+              const ageMinutes = Math.floor(
+                (now.getTime() - backupTime.getTime()) / 60000
+              )
+
+              // Only show prompt if backup is at least 1 minute old (prevents "0 minutes ago")
+              if (ageMinutes >= 1 && ageMinutes < 1440) {
+                // Less than 24 hours old and at least 1 minute old
+                const message = `Found an auto-saved draft from ${ageMinutes} minutes ago. Restore it?`
+                if (window.confirm(message)) {
+                  setInitialData(backup.state)
+                  restoredFromBackup = true
+                  setLoading(false)
+                  return
+                } else {
+                  // User declined - clear the backup to prevent re-prompting
+                  localStorage.removeItem('wsu_newsletter_backup')
+                }
+              } else if (ageMinutes >= 1440) {
+                // Backup is too old, clear it
+                localStorage.removeItem('wsu_newsletter_backup')
+              } else if (ageMinutes < 1) {
+                // Backup is too recent (less than 1 minute), likely just created
+                // Clear it to prevent "0 minutes ago" prompt
+                localStorage.removeItem('wsu_newsletter_backup')
+              }
+            } catch (e) {
+              console.warn('Failed to load backup:', e)
+              // Clear invalid backup
+              localStorage.removeItem('wsu_newsletter_backup')
+            }
+          }
+        }
+
+        // Only load defaults if we didn't restore from backup
+        if (!restoredFromBackup) {
+          // Load defaults for template type
+          const response = await fetch(`/api/defaults/${templateType}`)
+          if (response.ok) {
+            const data = await response.json()
+            setInitialData(data)
+          } else {
+            // Fallback to default FF model
+            setInitialData(defaultFFModel())
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load initial data:', error)
+        // Fallback to default FF model
+        setInitialData(defaultFFModel())
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadInitialData()
+  }, [templateType])
+
+  // Track template changes to force immediate preview updates
+  useEffect(() => {
+    if (previousTemplateRef.current !== null && previousTemplateRef.current !== templateType) {
+      // Template changed - reset preview flag to force immediate update
+      hasLoadedInitialPreview.current = false
+      previousStateTemplateRef.current = null // Reset state template tracking
+      console.log('🔄 Template changed:', previousTemplateRef.current, '->', templateType)
+    }
+    previousTemplateRef.current = templateType
+  }, [templateType])
+
+  // Update preview when state changes - especially when template changes
+  useEffect(() => {
+    // Only update preview after loading is complete and we have data
+    if (!loading && initialData && state) {
+      const stateTemplate = state.template || 'ff'
+      const stateTemplateChanged = previousStateTemplateRef.current !== null && 
+                                    previousStateTemplateRef.current !== stateTemplate
+      
+      // Also check if initialData template changed (for template switches)
+      const initialDataTemplate = initialData.template || 'ff'
+      const initialDataTemplateChanged = previousStateTemplateRef.current !== null &&
+                                         previousStateTemplateRef.current !== initialDataTemplate
+      
+      // For template switches or initial load, update immediately (not debounced)
+      // For regular edits, use debounced update
+      if (!hasLoadedInitialPreview.current || stateTemplateChanged || initialDataTemplateChanged) {
+        // Immediate update for template changes or initial load
+        hasLoadedInitialPreview.current = true
+        previousStateTemplateRef.current = stateTemplate
+        console.log('📺 Updating preview immediately', { 
+          template: stateTemplate, 
+          title: state.masthead?.title,
+          stateTemplateChanged,
+          initialDataTemplate,
+          initialDataTemplateChanged,
+          stateMastheadTitle: state.masthead?.title,
+          initialDataMastheadTitle: initialData.masthead?.title
+        })
+        updatePreview(state)
+      } else {
+        // Debounced update for regular edits
+        debouncedUpdatePreview(state)
+      }
+    }
+  }, [state, debouncedUpdatePreview, updatePreview, loading, initialData])
+
+  const handleRefreshPreview = () => {
+    updatePreview(state)
+  }
+
+  const handleTemplateChange = async (newType: 'ff' | 'briefing') => {
+    if (
+      window.confirm(
+        'Switch template? This will load default content and discard current edits.'
+      )
+    ) {
+      setTemplateType(newType)
+      // The useEffect will handle loading the new template
+    }
+  }
+
+  // Handler functions - defined after hooks but before conditional return
+  const handleExport = async () => {
+    if (!state) return
+    try {
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const templateType = state.template || 'ff'
+        const prefix = templateType === 'ff' ? 'Friday_Focus_' : 'Briefing_'
+        const date = new Date().toISOString().slice(0, 10)
+        a.download = `${prefix}${date}.html`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Export failed. Please try again.')
+    }
+  }
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text()
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: text }),
+      })
+
+      const result = await response.json()
+      if (result.success && result.data) {
+        setInitialData(result.data)
+        // State will be updated automatically by useNewsletterState
+        alert('Newsletter imported successfully!')
+      } else {
+        alert(`Import failed: ${result.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Import failed:', error)
+      alert('Import failed. Please try again.')
+    }
+  }
+
+  const handleValidate = async () => {
+    if (!state) return
+    try {
+      const response = await fetch('/api/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setValidationResult(result)
+        setShowValidation(true)
+      }
+    } catch (error) {
+      console.error('Validation failed:', error)
+    }
+  }
+
+  const handleStats = async () => {
+    if (!state) return
+    try {
+      const response = await fetch('/api/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setStatsResult(result.stats)
+        setShowStats(true)
+      }
+    } catch (error) {
+      console.error('Stats failed:', error)
+    }
+  }
+
+  const handleGeneratePlainText = async () => {
+    if (!state) return
+    try {
+      const response = await fetch('/api/generate-plaintext', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        // Create a new window with the plain text
+        const newWindow = window.open()
+        if (newWindow) {
+          newWindow.document.write(
+            `<pre style="padding: 20px; font-family: monospace; white-space: pre-wrap;">${result.text}</pre>`
+          )
+        }
+      }
+    } catch (error) {
+      console.error('Plain text generation failed:', error)
+    }
+  }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (loading || !initialData) return // Don't attach shortcuts while loading
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        e.preventDefault()
+        undo()
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault()
+        redo()
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        handleExport()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undo, redo, loading, initialData]) // Include loading state
+
+  return (
+    <div className="h-screen flex flex-col">
+      {/* Top Bar */}
+      <header className="flex justify-between items-center px-4 py-3 bg-white border-b border-wsu-border-light sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-wsu-crimson">
+            WSU Newsletter Editor
+          </h1>
+          <span className="text-xs text-wsu-text-muted bg-wsu-bg-light px-2 py-1 rounded">
+            v8.0
+          </span>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Undo (Ctrl+Z)"
+          >
+            Undo
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            Redo
+          </button>
+          <button
+            onClick={() => handleTemplateChange(templateType === 'ff' ? 'briefing' : 'ff')}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors"
+            title="Reset to template defaults"
+          >
+            Reset
+          </button>
+          <button
+            onClick={handleValidate}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
+            title="Check accessibility"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Validate
+          </button>
+          <button
+            onClick={handleStats}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
+            title="Content statistics"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Stats
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
+            title="Import HTML"
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) {
+                handleImport(file)
+                e.target.value = ''
+              }
+            }}
+          />
+          <button
+            onClick={handleGeneratePlainText}
+            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
+            title="Generate plain text"
+          >
+            <FileText className="w-4 h-4" />
+            Plain Text
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-wsu-crimson border border-wsu-crimson-dark rounded-md hover:bg-wsu-crimson-dark transition-colors flex items-center gap-1"
+            title="Export (Ctrl+S)"
+          >
+            <Download className="w-4 h-4" />
+            Export HTML
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Grid */}
+      <main className="flex-1 grid grid-cols-2 gap-0 overflow-hidden">
+        {/* Left Panel: Editor */}
+        <EditorPanel
+          state={state}
+          updateState={updateState}
+          templateType={templateType}
+          onTemplateChange={handleTemplateChange}
+        />
+
+        {/* Right Panel: Preview */}
+        <PreviewPanel
+          html={html}
+          loading={previewLoading}
+          onRefresh={handleRefreshPreview}
+        />
+      </main>
+
+      {/* Validation Modal */}
+      {showValidation && validationResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-wsu-text-dark">
+                Accessibility Validation
+              </h2>
+              <button
+                onClick={() => setShowValidation(false)}
+                className="text-wsu-text-muted hover:text-wsu-text-dark"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {validationResult.issues && validationResult.issues.length > 0 ? (
+              <div className="space-y-2">
+                <div className="p-3 bg-wsu-bg-light rounded-md mb-4">
+                  <strong>Found {validationResult.total} issue(s):</strong>
+                  {validationResult.errors > 0 && (
+                    <span className="ml-3 text-red-600">
+                      {validationResult.errors} error(s)
+                    </span>
+                  )}
+                  {validationResult.warnings > 0 && (
+                    <span className="ml-3 text-yellow-600">
+                      {validationResult.warnings} warning(s)
+                    </span>
+                  )}
+                </div>
+                {validationResult.issues.map((issue: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`p-3 border-l-4 rounded ${
+                      issue.severity === 'error'
+                        ? 'border-red-600 bg-red-50'
+                        : 'border-yellow-600 bg-yellow-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <strong
+                        className={
+                          issue.severity === 'error'
+                            ? 'text-red-600'
+                            : 'text-yellow-600'
+                        }
+                      >
+                        {issue.severity === 'error' ? '⚠ Error' : '⚠ Warning'}
+                      </strong>
+                      <span className="text-xs text-wsu-text-muted">
+                        {issue.location}
+                      </span>
+                    </div>
+                    <p className="text-sm text-wsu-text-dark mb-1">
+                      {issue.message}
+                    </p>
+                    <p className="text-xs text-wsu-text-muted">
+                      <strong>Fix:</strong> {issue.fix}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <h3 className="text-green-600 text-lg font-semibold mb-2">
+                  ✓ No Issues Found
+                </h3>
+                <p className="text-wsu-text-muted">
+                  Your newsletter passes all accessibility checks!
+                </p>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowValidation(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-wsu-crimson rounded-md hover:bg-wsu-crimson-dark transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Modal */}
+      {showStats && statsResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-wsu-text-dark">
+                Content Statistics
+              </h2>
+              <button
+                onClick={() => setShowStats(false)}
+                className="text-wsu-text-muted hover:text-wsu-text-dark"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.word_count}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">Words</div>
+              </div>
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.read_time_minutes}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">
+                  Min Read
+                </div>
+              </div>
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.image_count}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">Images</div>
+              </div>
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.link_count}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">Links</div>
+              </div>
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.card_count}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">Cards</div>
+              </div>
+              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
+                <div className="text-3xl font-bold text-wsu-crimson">
+                  {statsResult.section_count}
+                </div>
+                <div className="text-sm text-wsu-text-muted mt-2">
+                  Sections
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setShowStats(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-wsu-crimson rounded-md hover:bg-wsu-crimson-dark transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+

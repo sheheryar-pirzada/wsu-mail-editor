@@ -1,0 +1,33 @@
+// app/api/defaults/[type]/route.ts - Get default data for a template type
+
+import { NextRequest, NextResponse } from 'next/server'
+import { defaultFFModel, defaultBriefingModel } from '@/lib/defaults'
+import type { NewsletterData } from '@/types/newsletter'
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { type: string } }
+) {
+  try {
+    const templateType = params.type
+
+    let model: NewsletterData
+    if (templateType === 'briefing') {
+      model = defaultBriefingModel()
+    } else {
+      model = defaultFFModel()
+    }
+
+    return NextResponse.json<NewsletterData>(model)
+  } catch (error) {
+    console.error('Failed to get defaults:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+

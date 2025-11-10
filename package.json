@@ -1,12 +1,35 @@
 {
-  "name": "gs-slate-editor-v7",
+  "name": "wsu-gradschool-tools",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "WSU Graduate School Tools",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "format": "prettier --write static/**/*.{js,css} templates/**/*.html",
-    "checkfmt": "prettier -c static/**/*.{js,css} templates/**/*.html"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,css,md}\"",
+    "checkfmt": "prettier -c \"**/*.{ts,tsx,js,jsx,css,md}\""
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.300.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "^14.0.0",
+    "postcss": "^8.4.32",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3"
   },
   "repository": {
     "type": "git",
@@ -15,12 +38,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/gcrouch-wsu/WSU-Mail-Editor/issues"
   },
-  "homepage": "https://github.com/gcrouch-wsu/WSU-Mail-Editor#readme",
-  "devDependencies": {
-    "prettier": "^3.6.2"
-  }
+  "homepage": "https://github.com/gcrouch-wsu/WSU-Mail-Editor#readme"
 }
