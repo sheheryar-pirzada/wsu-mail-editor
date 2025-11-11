@@ -32,8 +32,6 @@ export function useNewsletterState(initialData: NewsletterData) {
     setUndoStack([])
     setRedoStack([])
     hasUnsavedChangesRef.current = false
-    
-    console.log('🔄 State reset to new initialData', { template: current.template })
   }, [initialData])
 
   // Auto-save to localStorage
@@ -46,11 +44,10 @@ export function useNewsletterState(initialData: NewsletterData) {
       }
       localStorage.setItem('wsu_newsletter_backup', JSON.stringify(backup))
       hasUnsavedChangesRef.current = false
-      console.log('📦 Auto-saved to localStorage')
     } catch (e) {
-      console.warn('⚠️ Auto-save failed:', e)
+      // Auto-save failed silently
       if (e instanceof Error && e.name === 'QuotaExceededError') {
-        console.error('Storage full - auto-save disabled')
+        // Storage full - auto-save disabled
       }
     }
   }, [state])
@@ -68,13 +65,11 @@ export function useNewsletterState(initialData: NewsletterData) {
 
       // Only offer restore if backup is less than 24 hours old
       if (ageMinutes > 1440) {
-        console.log('📦 Auto-save backup too old, ignoring')
         return null
       }
 
       return backup.state
     } catch (e) {
-      console.warn('⚠️ Failed to load auto-save:', e)
       return null
     }
   }, [])

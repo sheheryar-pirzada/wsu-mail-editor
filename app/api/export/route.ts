@@ -19,21 +19,12 @@ export async function POST(request: NextRequest) {
     const { export_options, ...newsletterData } = body
 
     // Generate HTML
-    console.log(
-      `Generating HTML for template: ${newsletterData.template || 'unknown'}`
-    )
     let htmlOutput = renderFullEmail(newsletterData as NewsletterData)
-    const originalSize = htmlOutput.length
-    console.log(`Generated HTML size: ${originalSize} bytes`)
 
     // IMPROVED MINIFICATION: More conservative approach
     if (minify) {
       // Only remove whitespace between tags, preserve all other whitespace
       htmlOutput = htmlOutput.replace(/>\s+</g, '><')
-      const minifiedSize = htmlOutput.length
-      console.log(
-        `Minified HTML size: ${minifiedSize} bytes (saved ${originalSize - minifiedSize} bytes)`
-      )
     }
 
     // SAFE JSON EMBEDDING: Use Base64 encoding to prevent HTML comment issues
@@ -56,14 +47,7 @@ export async function POST(request: NextRequest) {
       embeddedComment += '\n-->\n'
 
       htmlOutput = htmlOutput.replace('</body>', embeddedComment + '</body>')
-
-      console.log(
-        `Embedded JSON data: ${jsonStr.length} bytes → ${jsonB64.length} bytes (Base64)`
-      )
     }
-
-    const finalSize = htmlOutput.length
-    console.log(`Final HTML size: ${finalSize} bytes`)
 
     // Generate filename
     const templateType: TemplateType = (newsletterData.template === 'briefing' ? 'briefing' : 'ff')
@@ -73,8 +57,6 @@ export async function POST(request: NextRequest) {
     const date = new Date().toISOString().slice(0, 10)
     const filename = `${prefix}${date}${suffix}.html`
 
-    console.log(`Exporting as: ${filename}`)
-
     // Create response with explicit encoding
     return new NextResponse(htmlOutput, {
       headers: {
@@ -83,7 +65,6 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Export failed:', error)
     return NextResponse.json(
       {
         success: false,

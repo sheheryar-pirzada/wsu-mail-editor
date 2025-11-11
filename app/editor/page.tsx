@@ -13,9 +13,10 @@ import {
   Download,
   Upload,
   CheckCircle,
-  BarChart3,
   FileText,
   X,
+  Menu,
+  ChevronDown,
 } from 'lucide-react'
 
 export default function EditorPage() {
@@ -24,10 +25,10 @@ export default function EditorPage() {
   const [initialData, setInitialData] = useState<NewsletterData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showValidation, setShowValidation] = useState(false)
-  const [showStats, setShowStats] = useState(false)
   const [validationResult, setValidationResult] = useState<any>(null)
-  const [statsResult, setStatsResult] = useState<any>(null)
+  const [showMenu, setShowMenu] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const hasLoadedInitialPreview = useRef(false)
   const previousTemplateRef = useRef<'ff' | 'briefing' | null>(null)
   const previousStateTemplateRef = useRef<string | null>(null)
@@ -101,7 +102,6 @@ export default function EditorPage() {
                 localStorage.removeItem('wsu_newsletter_backup')
               }
             } catch (e) {
-              console.warn('Failed to load backup:', e)
               // Clear invalid backup
               localStorage.removeItem('wsu_newsletter_backup')
             }
@@ -121,7 +121,6 @@ export default function EditorPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to load initial data:', error)
         // Fallback to default FF model
         setInitialData(defaultFFModel())
       } finally {
@@ -138,7 +137,6 @@ export default function EditorPage() {
       // Template changed - reset preview flag to force immediate update
       hasLoadedInitialPreview.current = false
       previousStateTemplateRef.current = null // Reset state template tracking
-      console.log('🔄 Template changed:', previousTemplateRef.current, '->', templateType)
     }
     previousTemplateRef.current = templateType
   }, [templateType])
@@ -162,15 +160,6 @@ export default function EditorPage() {
         // Immediate update for template changes or initial load
         hasLoadedInitialPreview.current = true
         previousStateTemplateRef.current = stateTemplate
-        console.log('📺 Updating preview immediately', { 
-          template: stateTemplate, 
-          title: state.masthead?.title,
-          stateTemplateChanged,
-          initialDataTemplate,
-          initialDataTemplateChanged,
-          stateMastheadTitle: state.masthead?.title,
-          initialDataMastheadTitle: initialData.masthead?.title
-        })
         updatePreview(state)
       } else {
         // Debounced update for regular edits
@@ -219,7 +208,6 @@ export default function EditorPage() {
         URL.revokeObjectURL(url)
       }
     } catch (error) {
-      console.error('Export failed:', error)
       alert('Export failed. Please try again.')
     }
   }
@@ -242,7 +230,6 @@ export default function EditorPage() {
         alert(`Import failed: ${result.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Import failed:', error)
       alert('Import failed. Please try again.')
     }
   }
@@ -262,26 +249,7 @@ export default function EditorPage() {
         setShowValidation(true)
       }
     } catch (error) {
-      console.error('Validation failed:', error)
-    }
-  }
-
-  const handleStats = async () => {
-    if (!state) return
-    try {
-      const response = await fetch('/api/stats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state),
-      })
-
-      const result = await response.json()
-      if (result.success) {
-        setStatsResult(result.stats)
-        setShowStats(true)
-      }
-    } catch (error) {
-      console.error('Stats failed:', error)
+      // Validation failed silently
     }
   }
 
@@ -305,9 +273,23 @@ export default function EditorPage() {
         }
       }
     } catch (error) {
-      console.error('Plain text generation failed:', error)
+      // Plain text generation failed silently
     }
   }
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMenu])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -328,7 +310,7 @@ export default function EditorPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, loading, initialData]) // Include loading state
+  }, [undo, redo, handleExport, loading, initialData]) // Include loading state
 
   return (
     <div className="h-screen flex flex-col">
@@ -342,7 +324,7 @@ export default function EditorPage() {
             v8.0
           </span>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <button
             onClick={undo}
             disabled={!canUndo}
@@ -366,30 +348,66 @@ export default function EditorPage() {
           >
             Reset
           </button>
-          <button
-            onClick={handleValidate}
-            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
-            title="Check accessibility"
-          >
-            <CheckCircle className="w-4 h-4" />
-            Validate
-          </button>
-          <button
-            onClick={handleStats}
-            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
-            title="Content statistics"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Stats
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
-            title="Import HTML"
-          >
-            <Upload className="w-4 h-4" />
-            Import
-          </button>
+          
+          {/* Menu Dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
+              title="More actions"
+            >
+              <Menu className="w-4 h-4" />
+              <ChevronDown className={`w-3 h-3 transition-transform ${showMenu ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-wsu-border-light rounded-md shadow-lg z-50">
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      fileInputRef.current?.click()
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-wsu-text-body hover:bg-wsu-bg-light transition-colors flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import HTML
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExport()
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-wsu-text-body hover:bg-wsu-bg-light transition-colors flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export HTML
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleGeneratePlainText()
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-wsu-text-body hover:bg-wsu-bg-light transition-colors flex items-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Plain Text
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleValidate()
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-wsu-text-body hover:bg-wsu-bg-light transition-colors flex items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Validate
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          
           <input
             ref={fileInputRef}
             type="file"
@@ -403,22 +421,6 @@ export default function EditorPage() {
               }
             }}
           />
-          <button
-            onClick={handleGeneratePlainText}
-            className="px-3 py-1.5 text-sm font-medium text-wsu-text-body bg-white border border-wsu-border-light rounded-md hover:bg-wsu-bg-light transition-colors flex items-center gap-1"
-            title="Generate plain text"
-          >
-            <FileText className="w-4 h-4" />
-            Plain Text
-          </button>
-          <button
-            onClick={handleExport}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-wsu-crimson border border-wsu-crimson-dark rounded-md hover:bg-wsu-crimson-dark transition-colors flex items-center gap-1"
-            title="Export (Ctrl+S)"
-          >
-            <Download className="w-4 h-4" />
-            Export HTML
-          </button>
         </div>
       </header>
 
@@ -515,75 +517,6 @@ export default function EditorPage() {
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setShowValidation(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-wsu-crimson rounded-md hover:bg-wsu-crimson-dark transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats Modal */}
-      {showStats && statsResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-wsu-text-dark">
-                Content Statistics
-              </h2>
-              <button
-                onClick={() => setShowStats(false)}
-                className="text-wsu-text-muted hover:text-wsu-text-dark"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.word_count}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">Words</div>
-              </div>
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.read_time_minutes}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">
-                  Min Read
-                </div>
-              </div>
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.image_count}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">Images</div>
-              </div>
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.link_count}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">Links</div>
-              </div>
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.card_count}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">Cards</div>
-              </div>
-              <div className="p-4 bg-wsu-bg-light rounded-lg text-center">
-                <div className="text-3xl font-bold text-wsu-crimson">
-                  {statsResult.section_count}
-                </div>
-                <div className="text-sm text-wsu-text-muted mt-2">
-                  Sections
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setShowStats(false)}
                 className="px-4 py-2 text-sm font-medium text-white bg-wsu-crimson rounded-md hover:bg-wsu-crimson-dark transition-colors"
               >
                 Close

@@ -33,8 +33,8 @@ export default function EditorPanel({
   onTemplateChange,
 }: EditorPanelProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    settings: true,
-    masthead: true,
+    settings: false,
+    masthead: false,
     sections: true,
     footer: true,
   })

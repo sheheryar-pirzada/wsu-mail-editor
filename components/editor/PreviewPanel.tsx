@@ -31,7 +31,6 @@ export default function PreviewPanel({
           }
         }, 120)
       } catch (e) {
-        console.error('Preview iframe update failed:', e)
         // Fallback: reset to about:blank, then inject
         try {
           if (iframeRef.current) {
@@ -51,7 +50,7 @@ export default function PreviewPanel({
             }
           }
         } catch (fallbackError) {
-          console.error('Preview fallback failed:', fallbackError)
+          // Fallback failed silently
         }
       }
     }

@@ -19,13 +19,11 @@ export async function POST(request: NextRequest) {
       try {
         const jsonStr = Buffer.from(b64Data, 'base64').toString('utf-8')
         const newsletterData: NewsletterData = JSON.parse(jsonStr)
-        console.log('✅ Imported newsletter from Base64-encoded data')
         return NextResponse.json<ImportResponse>({
           success: true,
           data: newsletterData,
         })
       } catch (decodeError) {
-        console.error('Failed to decode Base64 data:', decodeError)
         return NextResponse.json<ImportResponse>(
           {
             success: false,
@@ -51,7 +49,6 @@ export async function POST(request: NextRequest) {
 
       const jsonStr = match[1]
       const newsletterData: NewsletterData = JSON.parse(jsonStr)
-      console.log('✅ Imported newsletter from legacy JSON format')
 
       // V7 MIGRATION: Convert old social object to array
       if (newsletterData.footer && newsletterData.footer.social) {
@@ -101,9 +98,6 @@ export async function POST(request: NextRequest) {
           }
 
           newsletterData.footer.social = migratedSocial
-          console.log(
-            `✅ Migrated ${migratedSocial.length} social links from V6 to V7 format`
-          )
         }
       }
 
@@ -112,9 +106,6 @@ export async function POST(request: NextRequest) {
         for (const section of newsletterData.sections) {
           if (section.layout && !section.layout.title_align) {
             section.layout.title_align = 'left'
-            console.log(
-              `✅ Added default title_align to section: ${section.title || 'untitled'}`
-            )
           }
         }
       }
@@ -125,7 +116,6 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('Import failed:', error)
     return NextResponse.json<ImportResponse>(
       {
         success: false,

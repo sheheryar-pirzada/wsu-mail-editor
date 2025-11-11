@@ -26,12 +26,10 @@ export function usePreview(initialHtml = '') {
         setHtml(result.html)
       } else {
         setError(result.error || 'Preview generation failed')
-        console.error('Preview generation failed:', result.error)
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
       setError(errorMessage)
-      console.error('Preview error:', err)
     } finally {
       setLoading(false)
     }

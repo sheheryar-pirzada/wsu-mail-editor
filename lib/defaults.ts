@@ -190,6 +190,7 @@ export function defaultFFModel(): NewsletterData {
             title: 'Want to advertise in Friday Focus?',
             body_html:
               '<p>Submit your events, announcements, and opportunities for the next newsletter.</p>',
+            text_alignment: 'center',
             button_bg_color: CTA_BUTTON_DEFAULTS.bg_color,
             button_text_color: CTA_BUTTON_DEFAULTS.text_color,
             button_padding_vertical: CTA_BUTTON_DEFAULTS.padding_vertical,
@@ -303,6 +304,7 @@ export function defaultBriefingModel(): NewsletterData {
             title: 'Submit Your Post',
             body_html:
               '<p>Do you have an update or announcement to share? We encourage submissions from all graduate programs. Submit your post here. You can also access <a href="https://gradschool.wsu.edu/faculty-and-staff-updates/">current and archived updates</a>.</p>',
+            text_alignment: 'center',
             button_bg_color: CTA_BUTTON_DEFAULTS.bg_color,
             button_text_color: CTA_BUTTON_DEFAULTS.text_color,
             button_padding_vertical: CTA_BUTTON_DEFAULTS.padding_vertical,

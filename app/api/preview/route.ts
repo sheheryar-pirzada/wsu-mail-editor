@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
       success: true,
     })
   } catch (error) {
-    console.error('Preview generation failed:', error)
     return NextResponse.json<PreviewResponse>(
       {
         html: '',

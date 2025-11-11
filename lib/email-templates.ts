@@ -70,9 +70,9 @@ ${esc(text)}
  */
 export function renderViewInBrowser(): string {
   const href = SLATE_VARIABLES.view_in_browser || 'browser'
-  return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE}">
+  return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_LIGHT};">
   <tr>
-    <td align="center" style="padding:12px 0;">
+    <td align="center" style="padding:12px 0; background-color:${BG_LIGHT};">
       <table cellpadding="0" cellspacing="0" role="presentation" width="600" class="container" style="${STYLE_TABLE}">
         <tr>
           <td style="text-align:center; font-size:13px; color:${TEXT_MUTED};">
@@ -119,7 +119,7 @@ export function renderMasthead(data: Masthead, containerWidth = 640): string {
   return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_LIGHT};">
   <tr>
     <td align="center">
-      <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; border-left:1px solid ${BORDER_MEDIUM}; border-right:1px solid ${BORDER_MEDIUM};">
+      <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE};">
         <tr>
           <td style="padding:${paddingStr}; text-align:${bannerAlign}; background-color:${BG_WHITE};">
             ${bannerHtml}
@@ -596,7 +596,7 @@ function renderClosuresSection(closures: Closure[]): string {
   return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_CARD}; margin-bottom:20px;">
   <tr>
     <td style="${STYLE_CARD_BODY}">
-      <ul style="margin:10px 0 0 0; padding:0 0 0 20px;">
+      <ul style="margin:10px 0 0 0; padding:0 0 0 20px; color:${TEXT_BODY}; font-size:16px; line-height:1.6;">
         ${ulContent}
       </ul>
     </td>
@@ -967,7 +967,7 @@ export function renderFullEmail(data: NewsletterData): string {
   <table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_LIGHT};">
     <tr>
       <td align="center">
-        <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; border-left:1px solid ${BORDER_MEDIUM}; border-right:1px solid ${BORDER_MEDIUM}; border-bottom:1px solid ${BORDER_MEDIUM};">
+        <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; ${BORDER_MEDIUM};  ${BORDER_MEDIUM}; border-bottom:1px solid ${BORDER_MEDIUM};">
           <tr>
             <td class="content" style="padding:18px 25px 28px; background-color:${BG_WHITE};">
               

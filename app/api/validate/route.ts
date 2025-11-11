@@ -96,7 +96,6 @@ export async function POST(request: NextRequest) {
       warnings: issues.filter((i) => i.severity === 'warning').length,
     })
   } catch (error) {
-    console.error('Validation failed:', error)
     return NextResponse.json<ValidationResult>(
       {
         success: false,

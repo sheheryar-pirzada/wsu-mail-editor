@@ -20,7 +20,6 @@ export async function GET(
 
     return NextResponse.json<NewsletterData>(model)
   } catch (error) {
-    console.error('Failed to get defaults:', error)
     return NextResponse.json(
       {
         success: false,

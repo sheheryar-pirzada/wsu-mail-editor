@@ -1,5 +1,8 @@
 // components/editor/FooterEditor.tsx - Footer editor component
 
+'use client'
+
+import { useState, useRef, useEffect } from 'react'
 import type { NewsletterData, SocialLink } from '@/types/newsletter'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -9,6 +12,132 @@ interface FooterEditorProps {
     updater: (prev: NewsletterData) => NewsletterData,
     pushHistory?: boolean
   ) => void
+}
+
+// Editable tag component for social link fields
+function EditableTag({
+  value,
+  placeholder,
+  onSave,
+  type = 'text',
+  truncateUrl = false,
+}: {
+  value: string
+  placeholder: string
+  onSave: (value: string) => void
+  type?: 'text' | 'url'
+  truncateUrl?: boolean
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditing])
+
+  useEffect(() => {
+    setEditValue(value)
+  }, [value])
+
+  // Truncate URL for display: show ".tld..." after common TLDs
+  const truncateUrlDisplay = (url: string): string => {
+    if (!truncateUrl || !url) return url
+    
+    const urlLower = url.toLowerCase()
+    
+    // Common TLDs to check for (ordered by length descending to match longer ones first)
+    // This prevents matching ".co" when ".com" exists
+    const tlds = [
+      '.online', '.store', '.tech', '.travel', '.info', '.biz', '.name', '.mobi', '.asia', '.jobs',
+      '.com', '.net', '.org', '.edu', '.gov', '.mil', '.int',
+      '.co', '.io', '.ai', '.us', '.uk', '.ca', '.au', '.de', '.fr', '.app', '.dev', '.site'
+    ]
+    
+    // Find the first (leftmost) matching TLD in the URL
+    // When multiple TLDs match at the same position, prefer the longer one
+    let bestMatch: { index: number; length: number } | null = null
+    
+    for (const tld of tlds) {
+      const index = urlLower.indexOf(tld)
+      if (index !== -1) {
+        // If no match yet, or this match is earlier, or same position but longer
+        if (
+          !bestMatch ||
+          index < bestMatch.index ||
+          (index === bestMatch.index && tld.length > bestMatch.length)
+        ) {
+          bestMatch = { index, length: tld.length }
+        }
+      }
+    }
+    
+    // If no TLD found, return original URL
+    if (!bestMatch) return url
+    
+    // Return everything up to and including the TLD plus "..."
+    return url.substring(0, bestMatch.index + bestMatch.length) + '...'
+  }
+
+  const handleClick = () => {
+    setIsEditing(true)
+  }
+
+  const handleBlur = () => {
+    handleSave()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleSave()
+    } else if (e.key === 'Escape') {
+      setEditValue(value)
+      setIsEditing(false)
+    }
+  }
+
+  const handleSave = () => {
+    const trimmedValue = editValue.trim()
+    if (trimmedValue !== value) {
+      onSave(trimmedValue)
+    }
+    setIsEditing(false)
+  }
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        type={type}
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        className="px-3 py-1.5 text-sm border-2 border-wsu-crimson rounded-lg focus:outline-none focus:ring-2 focus:ring-wsu-crimson min-w-[150px] bg-white"
+        placeholder={placeholder}
+      />
+    )
+  }
+
+  const displayValue = truncateUrl ? truncateUrlDisplay(value) : value
+  const displayTitle = truncateUrl && value ? value : undefined // Show full URL in tooltip when truncated
+
+  return (
+    <button
+      onClick={handleClick}
+      type="button"
+      className="px-3 py-1.5 text-sm font-medium bg-white border border-wsu-border-light rounded-lg hover:bg-wsu-bg-light hover:border-wsu-crimson/50 transition-all cursor-pointer shadow-sm text-left w-full"
+      title={displayTitle || 'Click to edit'}
+    >
+      <span className={value ? 'text-wsu-text-dark' : 'text-wsu-text-muted italic'}>
+        {displayValue || placeholder}
+      </span>
+    </button>
+  )
 }
 
 export default function FooterEditor({
@@ -148,50 +277,71 @@ export default function FooterEditor({
         <h4 className="mb-2 text-sm font-semibold text-wsu-text-dark">
           Social Media Links
         </h4>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {(footer.social || []).map((link, index) => (
             <div
               key={index}
-              className="flex gap-2 items-center"
+              className="p-3 bg-wsu-bg-light border border-wsu-border-light rounded-lg space-y-2"
             >
-              <input
-                type="text"
-                placeholder="Platform"
-                value={link.platform || ''}
-                onChange={(e) =>
-                  updateSocialLink(index, {
-                    ...link,
-                    platform: e.target.value,
-                    alt: e.target.value,
-                  })
-                }
-                className="flex-1 px-2 py-1 text-sm border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
-              />
-              <input
-                type="url"
-                placeholder="Profile URL"
-                value={link.url || ''}
-                onChange={(e) =>
-                  updateSocialLink(index, { ...link, url: e.target.value })
-                }
-                className="flex-1 px-2 py-1 text-sm border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
-              />
-              <input
-                type="url"
-                placeholder="Icon URL"
-                value={link.icon || ''}
-                onChange={(e) =>
-                  updateSocialLink(index, { ...link, icon: e.target.value })
-                }
-                className="flex-1 px-2 py-1 text-sm border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
-              />
-              <button
-                onClick={() => removeSocialLink(index)}
-                className="p-1 text-red-600 hover:text-red-700 flex-shrink-0"
-                title="Remove"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-wsu-text-muted">
+                  Link #{index + 1}
+                </span>
+                <button
+                  onClick={() => removeSocialLink(index)}
+                  className="p-1 text-red-600 hover:text-red-700 flex-shrink-0"
+                  title="Remove"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col gap-1.5 min-w-[150px]">
+                  <label className="text-xs font-medium text-wsu-text-dark">
+                    Platform
+                  </label>
+                  <EditableTag
+                    value={link.platform || ''}
+                    placeholder="e.g., Twitter"
+                    onSave={(value) =>
+                      updateSocialLink(index, {
+                        ...link,
+                        platform: value,
+                        alt: value || link.alt,
+                      })
+                    }
+                    type="text"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                  <label className="text-xs font-medium text-wsu-text-dark">
+                    Profile URL
+                  </label>
+                  <EditableTag
+                    value={link.url || ''}
+                    placeholder="https://..."
+                    onSave={(value) =>
+                      updateSocialLink(index, { ...link, url: value })
+                    }
+                    type="url"
+                    truncateUrl={true}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
+                  <label className="text-xs font-medium text-wsu-text-dark">
+                    Icon URL
+                  </label>
+                  <EditableTag
+                    value={link.icon || ''}
+                    placeholder="https://..."
+                    onSave={(value) =>
+                      updateSocialLink(index, { ...link, icon: value })
+                    }
+                    type="url"
+                    truncateUrl={true}
+                  />
+                </div>
+              </div>
             </div>
           ))}
         </div>
