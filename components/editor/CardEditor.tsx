@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import type { Card, Link } from '@/types/newsletter'
-import { X, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { CTA_BUTTON_DEFAULTS } from '@/lib/config'
 
 // Dynamically import ReactQuill to avoid SSR issues
@@ -25,7 +25,6 @@ export default function CardEditor({
   onDelete,
 }: CardEditorProps) {
   const [editedCard, setEditedCard] = useState<Card>(card)
-  const [showLinks, setShowLinks] = useState(false)
 
   // Quill editor modules configuration
   const quillModules = useMemo(
@@ -69,7 +68,6 @@ export default function CardEditor({
   const addLink = () => {
     const newLinks = [...(editedCard.links || []), { label: '', url: '' }]
     updateCard({ links: newLinks })
-    setShowLinks(true)
   }
 
   const removeLink = (index: number) => {
@@ -427,7 +425,7 @@ export default function CardEditor({
               </div>
             ) : (
               <p className="text-xs text-wsu-text-muted">
-                No links. Click "Add Link" to add one.
+                No links. Click &quot;Add Link&quot; to add one.
               </p>
             )}
           </div>

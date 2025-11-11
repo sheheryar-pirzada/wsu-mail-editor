@@ -2,12 +2,12 @@
 
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useNewsletterState } from './hooks/useNewsletterState'
 import { usePreview } from './hooks/usePreview'
 import PreviewPanel from '@/components/editor/PreviewPanel'
 import EditorPanel from '@/components/editor/EditorPanel'
-import type { NewsletterData } from '@/types/newsletter'
+import type { NewsletterData, ValidationResult, ValidationIssue } from '@/types/newsletter'
 import { defaultFFModel } from '@/lib/defaults'
 import {
   Download,
@@ -25,7 +25,7 @@ export default function EditorPage() {
   const [initialData, setInitialData] = useState<NewsletterData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showValidation, setShowValidation] = useState(false)
-  const [validationResult, setValidationResult] = useState<any>(null)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const [showMenu, setShowMenu] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -50,7 +50,6 @@ export default function EditorPage() {
     redo,
     canUndo,
     canRedo,
-    resetState,
   } = useNewsletterState(effectiveInitialData)
 
   const { html, loading: previewLoading, updatePreview, debouncedUpdatePreview } =
@@ -184,7 +183,7 @@ export default function EditorPage() {
   }
 
   // Handler functions - defined after hooks but before conditional return
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!state) return
     try {
       const response = await fetch('/api/export', {
@@ -210,7 +209,7 @@ export default function EditorPage() {
     } catch (error) {
       alert('Export failed. Please try again.')
     }
-  }
+  }, [state])
 
   const handleImport = async (file: File) => {
     try {
@@ -461,18 +460,18 @@ export default function EditorPage() {
               <div className="space-y-2">
                 <div className="p-3 bg-wsu-bg-light rounded-md mb-4">
                   <strong>Found {validationResult.total} issue(s):</strong>
-                  {validationResult.errors > 0 && (
+                  {(validationResult.errors ?? 0) > 0 && (
                     <span className="ml-3 text-red-600">
                       {validationResult.errors} error(s)
                     </span>
                   )}
-                  {validationResult.warnings > 0 && (
+                  {(validationResult.warnings ?? 0) > 0 && (
                     <span className="ml-3 text-yellow-600">
                       {validationResult.warnings} warning(s)
                     </span>
                   )}
                 </div>
-                {validationResult.issues.map((issue: any, index: number) => (
+                {validationResult.issues.map((issue: ValidationIssue, index: number) => (
                   <div
                     key={index}
                     className={`p-3 border-l-4 rounded ${

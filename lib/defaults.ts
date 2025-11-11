@@ -1,6 +1,6 @@
 // defaults.ts - Default newsletter data models
 
-import type { NewsletterData, Section, Card } from '@/types/newsletter'
+import type { NewsletterData } from '@/types/newsletter'
 import {
   FRIDAY_FOCUS,
   BRIEFING,

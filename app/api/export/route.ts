@@ -8,7 +8,6 @@ import { EXPORT_DEFAULTS } from '@/lib/config'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const data: NewsletterData = body
     const exportOptions: ExportOptions = body.export_options || {}
 
     // Extract export options
@@ -16,7 +15,8 @@ export async function POST(request: NextRequest) {
     const stripJson = exportOptions.strip_json ?? EXPORT_DEFAULTS.strip_json
 
     // Remove export_options from data before rendering
-    const { export_options, ...newsletterData } = body
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { export_options: _exportOptions, ...newsletterData } = body
 
     // Generate HTML
     let htmlOutput = renderFullEmail(newsletterData as NewsletterData)

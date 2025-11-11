@@ -1,7 +1,7 @@
 // app/api/stats/route.ts - Get content statistics
 
 import { NextRequest, NextResponse } from 'next/server'
-import type { NewsletterData, StatsResult, Stats } from '@/types/newsletter'
+import type { NewsletterData, StatsResult } from '@/types/newsletter'
 
 export async function POST(request: NextRequest) {
   try {

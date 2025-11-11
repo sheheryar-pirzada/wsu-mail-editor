@@ -36,13 +36,11 @@ interface SectionsEditorProps {
 function SortableSectionItem({
   section,
   sectionIndex,
-  onUpdateSection,
   onRemoveSection,
   children,
 }: {
   section: Section
   sectionIndex: number
-  onUpdateSection: (index: number, section: Section) => void
   onRemoveSection: (index: number) => void
   children: React.ReactNode
 }) {
@@ -502,14 +500,13 @@ export default function SectionsEditor({
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-4">
-            {sections.map((section, sectionIndex) => (
-              <SortableSectionItem
-                key={section.key || `section-${sectionIndex}`}
-                section={section}
-                sectionIndex={sectionIndex}
-                onUpdateSection={updateSection}
-                onRemoveSection={removeSection}
-              >
+                {sections.map((section, sectionIndex) => (
+                  <SortableSectionItem
+                    key={section.key || `section-${sectionIndex}`}
+                    section={section}
+                    sectionIndex={sectionIndex}
+                    onRemoveSection={removeSection}
+                  >
                 <div className="space-y-2">
                   <div>
                     <label className="block text-xs font-medium text-wsu-text-dark mb-1">

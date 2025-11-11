@@ -625,9 +625,6 @@ function renderCTABox(
   section: Section | null = null,
   settings: Settings | null = null
 ): string {
-  // Extract text from HTML for plain text fallback
-  const bodyText = bodyHtml.replace(/<[^>]*>/g, '')
-
   // Get dynamic card style and padding (like other card types)
   let cardStyle: string
   let padding: Padding
@@ -688,7 +685,7 @@ function renderCTABox(
 /**
  * V7: Footer with array-based social links and configurable spacing
  */
-export function renderFooter(data: Footer, containerWidth = 640): string {
+export function renderFooter(data: Footer): string {
   const addressLines = data.address_lines || []
   const social = data.social || []
 
@@ -979,7 +976,7 @@ export function renderFullEmail(data: NewsletterData): string {
           <!-- Footer -->
           <tr>
             <td>
-              ${renderFooter(footer, containerWidth)}
+              ${renderFooter(footer)}
             </td>
           </tr>
         </table>

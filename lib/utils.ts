@@ -1,7 +1,5 @@
 // utils.ts - Utility functions
 
-import { STYLE_SOCIAL_ICON_CELL, STYLE_IMAGE } from './styles'
-
 /**
  * Clone an object deeply
  */
@@ -12,7 +10,7 @@ export function clone<T>(obj: T): T {
 /**
  * Debounce function
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   ms = 300
 ): (...args: Parameters<T>) => void {

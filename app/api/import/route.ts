@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
           ]
           for (const platformKey of platformKeys) {
             if (platformKey in social) {
-              const platformData = (social as any)[platformKey]
+              const platformData = (social as Record<string, string | { url?: string; icon?: string; alt?: string }>)[platformKey]
 
               // Handle both old formats (string URL or object with url/icon)
               if (typeof platformData === 'string') {

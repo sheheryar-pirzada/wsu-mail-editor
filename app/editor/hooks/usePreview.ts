@@ -1,6 +1,6 @@
 // app/editor/hooks/usePreview.ts - Preview generation hook
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { NewsletterData, PreviewResponse } from '@/types/newsletter'
 import { debounce } from '@/lib/utils'
 
