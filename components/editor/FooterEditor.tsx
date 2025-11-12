@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { NewsletterData, SocialLink } from '@/types/newsletter'
 import { Plus, Trash2 } from 'lucide-react'
+import ColorPicker from './ColorPicker'
 
 interface FooterEditorProps {
   state: NewsletterData
@@ -358,54 +359,40 @@ export default function FooterEditor({
         <h4 className="mb-2 text-sm font-semibold text-wsu-text-dark">
           Footer Styling
         </h4>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-wsu-text-dark w-32">
-              Background Color
-            </label>
-            <input
-              type="color"
-              value={footer.background_color || '#2A3033'}
-              onChange={(e) =>
-                updateState((prev) => ({
-                  ...prev,
-                  footer: {
-                    ...prev.footer,
-                    background_color: e.target.value,
-                  },
-                }))
-              }
-              className="h-8 w-16 border border-wsu-border-light rounded"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-wsu-text-dark w-32">Text Color</label>
-            <input
-              type="color"
-              value={footer.text_color || '#cccccc'}
-              onChange={(e) =>
-                updateState((prev) => ({
-                  ...prev,
-                  footer: { ...prev.footer, text_color: e.target.value },
-                }))
-              }
-              className="h-8 w-16 border border-wsu-border-light rounded"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-wsu-text-dark w-32">Link Color</label>
-            <input
-              type="color"
-              value={footer.link_color || '#ffffff'}
-              onChange={(e) =>
-                updateState((prev) => ({
-                  ...prev,
-                  footer: { ...prev.footer, link_color: e.target.value },
-                }))
-              }
-              className="h-8 w-16 border border-wsu-border-light rounded"
-            />
-          </div>
+        <div className="space-y-3">
+          <ColorPicker
+            label="Background Color"
+            value={footer.background_color || '#2A3033'}
+            onChange={(color) =>
+              updateState((prev) => ({
+                ...prev,
+                footer: {
+                  ...prev.footer,
+                  background_color: color,
+                },
+              }))
+            }
+          />
+          <ColorPicker
+            label="Text Color"
+            value={footer.text_color || '#cccccc'}
+            onChange={(color) =>
+              updateState((prev) => ({
+                ...prev,
+                footer: { ...prev.footer, text_color: color },
+              }))
+            }
+          />
+          <ColorPicker
+            label="Link Color"
+            value={footer.link_color || '#ffffff'}
+            onChange={(color) =>
+              updateState((prev) => ({
+                ...prev,
+                footer: { ...prev.footer, link_color: color },
+              }))
+            }
+          />
         </div>
       </div>
     </div>

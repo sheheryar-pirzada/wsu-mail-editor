@@ -1,7 +1,7 @@
 // app/api/defaults/[type]/route.ts - Get default data for a template type
 
 import { NextRequest, NextResponse } from 'next/server'
-import { defaultFFModel, defaultBriefingModel } from '@/lib/defaults'
+import { defaultFFModel, defaultBriefingModel, defaultLetterModel } from '@/lib/defaults'
 import type { NewsletterData } from '@/types/newsletter'
 
 export async function GET(
@@ -14,6 +14,8 @@ export async function GET(
     let model: NewsletterData
     if (templateType === 'briefing') {
       model = defaultBriefingModel()
+    } else if (templateType === 'letter') {
+      model = defaultLetterModel()
     } else {
       model = defaultFFModel()
     }

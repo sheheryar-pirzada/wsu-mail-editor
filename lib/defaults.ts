@@ -4,6 +4,7 @@ import type { NewsletterData } from '@/types/newsletter'
 import {
   FRIDAY_FOCUS,
   BRIEFING,
+  LETTER,
   DEFAULT_BANNER_URL,
   DEFAULT_BANNER_ALT,
   ORGANIZATION,
@@ -39,7 +40,7 @@ function createDefaultSectionLayout() {
 
 function applyConfigDefaults(
   modelData: NewsletterData,
-  templateType: 'ff' | 'briefing'
+  templateType: 'ff' | 'briefing' | 'letter'
 ): NewsletterData {
   if (templateType === 'ff') {
     modelData.masthead.title =
@@ -54,6 +55,12 @@ function applyConfigDefaults(
       modelData.masthead.tagline || BRIEFING.tagline
     modelData.masthead.preheader =
       modelData.masthead.preheader || BRIEFING.preheader
+  } else if (templateType === 'letter') {
+    modelData.masthead.title = modelData.masthead.title || LETTER.title
+    modelData.masthead.tagline =
+      modelData.masthead.tagline || LETTER.tagline
+    modelData.masthead.preheader =
+      modelData.masthead.preheader || LETTER.preheader
   }
 
   // Apply branding defaults
@@ -370,5 +377,79 @@ export function defaultBriefingModel(): NewsletterData {
   }
 
   return applyConfigDefaults(model, 'briefing')
+}
+
+export function defaultLetterModel(): NewsletterData {
+  const model: NewsletterData = {
+    template: 'letter',
+    masthead: {
+      banner_url: DEFAULT_BANNER_URL,
+      banner_alt: DEFAULT_BANNER_ALT,
+      title: LETTER.title,
+      tagline: LETTER.tagline,
+      preheader: LETTER.preheader,
+      hero_show: true,
+      hero_link: '',
+    },
+    sections: [
+      {
+        key: 'letter_content',
+        title: '',
+        layout: createDefaultSectionLayout(),
+        cards: [
+          {
+            type: 'letter',
+            greeting: 'Dear Graduate Students,',
+            body_html:
+              '<p>This is a sample letter-style message. You can customize the greeting, body content, closing, and signature information.</p>',
+            closing: 'Sincerely,',
+            signature_name: 'Tammy D. Barry',
+            signature_lines: [
+              'Dean of the Graduate School',
+              'Vice Provost for Graduate Education',
+            ],
+            signature_image_url:
+              'https://futurecoug.wsu.edu/www/images/8hG3FTHdpyUZZD4ILkWxI2Z8EjhQLChenToRkB20GeeDWkUQ6k_cxhHBNhmo8Sp1G26HVWE1AYun2gBz7B2XaQ.png',
+            signature_image_alt: 'Tammy D. Barry signature',
+            signature_image_width: 220,
+            links: [],
+            spacing_bottom: 20,
+            background_color: '#ffffff',
+          },
+        ],
+      },
+    ],
+    footer: {
+      address_lines: [
+        ORGANIZATION.name,
+        ORGANIZATION.address_line_1,
+        ORGANIZATION.address_line_2,
+      ],
+      social: [...DEFAULT_SOCIAL_LINKS],
+      background_color: FOOTER_DEFAULTS.background_color,
+      text_color: FOOTER_DEFAULTS.text_color,
+      link_color: FOOTER_DEFAULTS.link_color,
+      padding_top: FOOTER_DEFAULTS.padding_top,
+      padding_bottom: FOOTER_DEFAULTS.padding_bottom,
+      social_margin_top: FOOTER_DEFAULTS.social_margin_top,
+      social_margin_bottom: FOOTER_DEFAULTS.social_margin_bottom,
+    },
+    settings: {
+      container_width: LAYOUT_DEFAULTS.container_width,
+      section_spacing: LAYOUT_DEFAULTS.section_spacing,
+      show_section_borders: LAYOUT_DEFAULTS.show_section_borders,
+      padding_text: LAYOUT_DEFAULTS.padding_text,
+      padding_image: LAYOUT_DEFAULTS.padding_image,
+      typography: TYPOGRAPHY_DEFAULTS,
+      colors: {
+        primary: BRAND_PRIMARY,
+        text_dark: TEXT_DARK,
+        text_body: TEXT_BODY,
+        text_muted: TEXT_MUTED,
+      },
+    },
+  }
+
+  return applyConfigDefaults(model, 'letter')
 }
 

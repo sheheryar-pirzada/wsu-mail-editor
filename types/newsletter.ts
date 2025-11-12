@@ -1,6 +1,6 @@
 // types/newsletter.ts - TypeScript types for newsletter data structures
 
-export type TemplateType = 'ff' | 'briefing'
+export type TemplateType = 'ff' | 'briefing' | 'letter'
 
 export type TitleAlign = 'left' | 'center' | 'right'
 
@@ -92,6 +92,13 @@ export interface StandardCard {
   border_width?: number
   border_color?: string
   border_radius?: number
+  // Table styling options
+  table_border_style?: 'none' | 'light' | 'medium' | 'bold'
+  table_border_color?: string
+  table_font_size?: number
+  table_header_bg_color?: string
+  table_header_underline?: number
+  table_header_underline_color?: string
 }
 
 export interface EventCard {
@@ -108,6 +115,13 @@ export interface EventCard {
   border_width?: number
   border_color?: string
   border_radius?: number
+  // Table styling options
+  table_border_style?: 'none' | 'light' | 'medium' | 'bold'
+  table_border_color?: string
+  table_font_size?: number
+  table_header_bg_color?: string
+  table_header_underline?: number
+  table_header_underline_color?: string
 }
 
 export interface ResourceCard {
@@ -128,6 +142,13 @@ export interface ResourceCard {
   border_width?: number
   border_color?: string
   border_radius?: number
+  // Table styling options
+  table_border_style?: 'none' | 'light' | 'medium' | 'bold'
+  table_border_color?: string
+  table_font_size?: number
+  table_header_bg_color?: string
+  table_header_underline?: number
+  table_header_underline_color?: string
 }
 
 export interface CTACard {
@@ -151,9 +172,42 @@ export interface CTACard {
   border_width?: number
   border_color?: string
   border_radius?: number
+  // Table styling options
+  table_border_style?: 'none' | 'light' | 'medium' | 'bold'
+  table_border_color?: string
+  table_font_size?: number
+  table_header_bg_color?: string
+  table_header_underline?: number
+  table_header_underline_color?: string
 }
 
-export type Card = StandardCard | EventCard | ResourceCard | CTACard
+export interface LetterCard {
+  type: 'letter'
+  greeting?: string
+  body_html: string
+  closing?: string
+  signature_name?: string
+  signature_lines?: string[]
+  signature_image_url?: string
+  signature_image_alt?: string
+  signature_image_width?: number
+  links: Link[]
+  spacing_bottom?: number
+  background_color?: string
+  padding?: Padding
+  border_width?: number
+  border_color?: string
+  border_radius?: number
+  // Table styling options
+  table_border_style?: 'none' | 'light' | 'medium' | 'bold'
+  table_border_color?: string
+  table_font_size?: number
+  table_header_bg_color?: string
+  table_header_underline?: number
+  table_header_underline_color?: string
+}
+
+export type Card = StandardCard | EventCard | ResourceCard | CTACard | LetterCard
 
 export interface Closure {
   date: string

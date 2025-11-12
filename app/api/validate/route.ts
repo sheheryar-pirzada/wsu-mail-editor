@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
       const sectionTitle = section.title || 'Untitled Section'
 
       for (const card of section.cards || []) {
-        const cardTitle = card.title || 'Untitled Card'
+        // Get card title - LetterCard doesn't have a title property
+        const cardTitle =
+          'title' in card && card.title ? card.title : `Card (${card.type})`
 
         // Check for placeholder links
         for (const link of card.links || []) {

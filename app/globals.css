@@ -2,75 +2,128 @@
 @tailwind components;
 @tailwind utilities;
 
-@import 'react-quill/dist/quill.snow.css';
-
 @layer base {
   body {
     @apply bg-wsu-bg-light text-wsu-text-body;
   }
 }
 
-/* Custom styles for Quill editor to match WSU theme */
-.ql-toolbar {
-  @apply border-wsu-border-light bg-wsu-bg-light;
-  border-top-left-radius: 0.375rem;
-  border-top-right-radius: 0.375rem;
+/* Tiptap editor styles */
+.tiptap-editor {
+  outline: none;
 }
 
-.ql-container {
-  @apply border-wsu-border-light;
-  border-bottom-left-radius: 0.375rem;
-  border-bottom-right-radius: 0.375rem;
-  font-size: 16px;
-}
-
-.ql-editor {
+.ProseMirror {
+  outline: none;
   min-height: 200px;
+  padding: 1rem;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
 }
 
-.ql-editor.ql-blank::before {
-  @apply text-wsu-text-muted;
-  font-style: normal;
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 0.67em 0;
 }
 
-.ql-snow .ql-stroke {
-  @apply stroke-wsu-text-dark;
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.75em 0;
 }
 
-.ql-snow .ql-fill {
-  @apply fill-wsu-text-dark;
+.ProseMirror h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin: 0.83em 0;
 }
 
-.ql-snow .ql-picker-label {
-  @apply text-wsu-text-dark;
+.ProseMirror p {
+  margin: 1em 0;
 }
 
-.ql-snow .ql-picker-options {
-  @apply bg-white border-wsu-border-light;
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 1em 0;
+  padding-left: 2em;
 }
 
-.ql-snow .ql-picker-item:hover {
-  @apply bg-wsu-bg-light;
+.ProseMirror li {
+  margin: 0.5em 0;
 }
 
-.ql-snow .ql-tooltip {
-  @apply bg-white border-wsu-border-light;
+.ProseMirror a {
+  color: #A60F2D;
+  text-decoration: underline;
 }
 
-.ql-snow .ql-tooltip input {
-  @apply border-wsu-border-light;
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
 }
 
-.ql-snow .ql-tooltip a {
-  @apply text-wsu-crimson;
+/* Tiptap placeholder styles */
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
 }
 
-.ql-snow .ql-tooltip a.ql-action::after {
-  @apply border-wsu-border-light;
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
 }
 
-.ql-snow .ql-tooltip a.ql-action:hover::after {
-  @apply text-wsu-crimson;
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #000;
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 8px;
+  position: relative;
+  vertical-align: top;
+}
+
+.ProseMirror table th {
+  background-color: rgba(0, 0, 0, 0.05);
+  font-weight: bold;
+  text-align: left;
+}
+
+.ProseMirror table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: #adf;
+  pointer-events: none;
+}
+
+.ProseMirror table p {
+  margin: 0;
 }
 
 /* Custom styles for select dropdowns - move arrow to the left */
@@ -84,4 +137,5 @@ select {
   -webkit-appearance: none;
   -moz-appearance: none;
 }
+
 

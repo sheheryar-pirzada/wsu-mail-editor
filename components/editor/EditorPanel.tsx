@@ -62,6 +62,7 @@ export default function EditorPanel({
         >
           <option value="ff">Friday Focus (Students)</option>
           <option value="briefing">Graduate School Briefing (Faculty/Staff)</option>
+          <option value="letter">Graduate School Slate Campaign</option>
         </select>
         <p className="mt-2 text-xs text-wsu-text-muted">
           Switching templates will load default content for that template type.

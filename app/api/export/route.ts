@@ -50,7 +50,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate filename
-    const templateType: TemplateType = (newsletterData.template === 'briefing' ? 'briefing' : 'ff')
+    const templateType: TemplateType =
+      newsletterData.template === 'briefing'
+        ? 'briefing'
+        : newsletterData.template === 'letter'
+        ? 'letter'
+        : 'ff'
     const prefix =
       EXPORT_DEFAULTS.filename_prefix[templateType] || 'Newsletter_'
     const suffix = stripJson ? '_PRODUCTION' : ''

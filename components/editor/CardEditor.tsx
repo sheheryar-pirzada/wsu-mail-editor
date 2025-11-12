@@ -2,14 +2,22 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
-import dynamic from 'next/dynamic'
+import { useState } from 'react'
 import type { Card, Link } from '@/types/newsletter'
 import { Plus, Trash2 } from 'lucide-react'
 import { CTA_BUTTON_DEFAULTS } from '@/lib/config'
+import dynamic from 'next/dynamic'
+import ColorPicker from './ColorPicker'
 
-// Dynamically import ReactQuill to avoid SSR issues
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false })
+// Dynamically import TiptapEditor to avoid SSR issues
+const TiptapEditor = dynamic(() => import('./TiptapEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="border border-wsu-border-light rounded-md p-4 bg-white min-h-[200px] flex items-center justify-center text-wsu-text-muted">
+      Loading editor...
+    </div>
+  ),
+})
 
 interface CardEditorProps {
   card: Card
@@ -25,35 +33,6 @@ export default function CardEditor({
   onDelete,
 }: CardEditorProps) {
   const [editedCard, setEditedCard] = useState<Card>(card)
-
-  // Quill editor modules configuration
-  const quillModules = useMemo(
-    () => ({
-      toolbar: [
-        [{ header: [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        [{ indent: '-1' }, { indent: '+1' }],
-        ['link'],
-        [{ align: [] }],
-        ['clean'],
-      ],
-    }),
-    []
-  )
-
-  const quillFormats = [
-    'header',
-    'bold',
-    'italic',
-    'underline',
-    'strike',
-    'list',
-    'bullet',
-    'indent',
-    'link',
-    'align',
-  ]
 
   const updateCard = (updates: Partial<Card>) => {
     setEditedCard((prev) => ({ ...prev, ...updates } as Card))
@@ -112,48 +91,39 @@ export default function CardEditor({
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Title */}
-          <div>
-            <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
-              Title *
-            </label>
-            <input
-              type="text"
-              value={editedCard.title || ''}
-              onChange={(e) => updateCard({ title: e.target.value })}
-              className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
-              placeholder="Card title"
-            />
-          </div>
+          {/* Title - Only show for card types that have a title property */}
+          {'title' in editedCard && (
+            <div>
+              <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                Title *
+              </label>
+              <input
+                type="text"
+                value={editedCard.title || ''}
+                onChange={(e) => updateCard({ title: e.target.value })}
+                className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                placeholder="Card title"
+              />
+            </div>
+          )}
 
           {/* Body HTML - Rich Text Editor */}
           <div>
             <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
               Body Content *
             </label>
-            <div className="border border-wsu-border-light rounded-md overflow-hidden bg-white">
-              <ReactQuill
-                theme="snow"
-                value={editedCard.body_html || ''}
-                onChange={(value) => {
-                  // Quill returns '<p><br></p>' or '<p></p>' for empty content
-                  // Normalize to empty string for storage, but Quill needs the placeholder HTML
-                  let normalizedValue = value
-                  if (value === '<p><br></p>' || value === '<p></p>' || value.trim() === '') {
-                    normalizedValue = ''
-                  }
-                  updateCard({ body_html: normalizedValue })
-                }}
-                modules={quillModules}
-                formats={quillFormats}
-                placeholder="Enter card content..."
-                style={{
-                  minHeight: '200px',
-                }}
-              />
-            </div>
+            <TiptapEditor
+              value={editedCard.body_html || ''}
+              onChange={(value) => {
+                updateCard({ body_html: value })
+              }}
+              placeholder="Enter card content..."
+              style={{
+                minHeight: '200px',
+              }}
+            />
             <p className="mt-1 text-xs text-wsu-text-muted">
-              Use the toolbar to format your content with bold, italic, lists, links, and more.
+              Use the toolbar to format your content with bold, italic, lists, links, tables, and more.
             </p>
           </div>
 
@@ -275,6 +245,124 @@ export default function CardEditor({
             </div>
           )}
 
+          {/* Letter Card Specific Fields */}
+          {editedCard.type === 'letter' && (
+            <div className="border-t border-wsu-border-light pt-4 space-y-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                  Greeting
+                </label>
+                <input
+                  type="text"
+                  value={editedCard.greeting || ''}
+                  onChange={(e) => updateCard({ greeting: e.target.value })}
+                  className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                  placeholder="e.g., Dear Graduate Students,"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                  Closing
+                </label>
+                <input
+                  type="text"
+                  value={editedCard.closing || ''}
+                  onChange={(e) => updateCard({ closing: e.target.value })}
+                  className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                  placeholder="e.g., Sincerely,"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                  Signature Name
+                </label>
+                <input
+                  type="text"
+                  value={editedCard.signature_name || ''}
+                  onChange={(e) =>
+                    updateCard({ signature_name: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                  placeholder="e.g., Graduate School Leadership"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                  Signature Lines (one per line)
+                </label>
+                <textarea
+                  value={
+                    editedCard.signature_lines
+                      ? editedCard.signature_lines.join('\n')
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const lines = e.target.value
+                      .split('\n')
+                      .map((line) => line.trim())
+                      .filter((line) => line.length > 0)
+                    updateCard({ signature_lines: lines })
+                  }}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                  placeholder="Title&#10;Department&#10;Organization"
+                />
+                <p className="mt-1 text-xs text-wsu-text-muted">
+                  Enter each signature line on a separate line.
+                </p>
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                  Signature Image URL
+                </label>
+                <input
+                  type="url"
+                  value={editedCard.signature_image_url || ''}
+                  onChange={(e) =>
+                    updateCard({ signature_image_url: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                  placeholder="https://..."
+                />
+              </div>
+              {editedCard.signature_image_url && (
+                <>
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                      Signature Image Alt Text
+                    </label>
+                    <input
+                      type="text"
+                      value={editedCard.signature_image_alt || ''}
+                      onChange={(e) =>
+                        updateCard({ signature_image_alt: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                      placeholder="Signature"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                      Signature Image Width (px)
+                    </label>
+                    <input
+                      type="number"
+                      min="50"
+                      max="500"
+                      value={editedCard.signature_image_width || 220}
+                      onChange={(e) =>
+                        updateCard({
+                          signature_image_width: parseInt(e.target.value) || 220,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* CTA Card Specific Fields */}
           {editedCard.type === 'cta' && (
             <div className="border-t border-wsu-border-light pt-4 space-y-4">
@@ -371,6 +459,95 @@ export default function CardEditor({
               </div>
             </div>
           )}
+
+          {/* Table Styling Options */}
+          <div className="border-t border-wsu-border-light pt-4 space-y-4">
+            <h3 className="text-sm font-semibold text-wsu-text-dark mb-2">
+              Table Styling
+            </h3>
+            
+            <div>
+              <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                Border style
+              </label>
+              <select
+                value={editedCard.table_border_style || 'light'}
+                onChange={(e) =>
+                  updateCard({
+                    table_border_style: e.target.value as
+                      | 'none'
+                      | 'light'
+                      | 'medium'
+                      | 'bold',
+                  })
+                }
+                className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+              >
+                <option value="none">None</option>
+                <option value="light">Light (1px)</option>
+                <option value="medium">Medium (2px)</option>
+                <option value="bold">Bold (3px)</option>
+              </select>
+            </div>
+
+            <ColorPicker
+              label="Border color"
+              value={editedCard.table_border_color || '#d9d9d9'}
+              onChange={(color) => updateCard({ table_border_color: color })}
+            />
+
+            <div>
+              <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                Table font size (px)
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="24"
+                value={editedCard.table_font_size || 16}
+                onChange={(e) =>
+                  updateCard({
+                    table_font_size: parseInt(e.target.value) || 16,
+                  })
+                }
+                className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+              />
+            </div>
+
+            <ColorPicker
+              label="Header background color"
+              value={editedCard.table_header_bg_color || '#f4f4f4'}
+              onChange={(color) =>
+                updateCard({ table_header_bg_color: color })
+              }
+            />
+
+            <div>
+              <label className="block mb-1 text-sm font-medium text-wsu-text-dark">
+                Header underline (px)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={editedCard.table_header_underline || 0}
+                onChange={(e) =>
+                  updateCard({
+                    table_header_underline: parseInt(e.target.value) || 0,
+                  })
+                }
+                className="w-full px-3 py-2 border border-wsu-border-light rounded-md focus:outline-none focus:ring-2 focus:ring-wsu-crimson"
+              />
+            </div>
+
+            <ColorPicker
+              label="Header underline color"
+              value={editedCard.table_header_underline_color || '#d9d9d9'}
+              onChange={(color) =>
+                updateCard({ table_header_underline_color: color })
+              }
+            />
+          </div>
 
           {/* Links */}
           <div className="border-t border-wsu-border-light pt-4">

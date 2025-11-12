@@ -76,6 +76,13 @@ export const BRIEFING = {
   knowledge_base_url: 'https://confluence.esg.wsu.edu/display/GRADSCHOOL',
 } as const
 
+// Letter (Slate Campaign) defaults
+export const LETTER = {
+  title: 'Graduate School Slate Campaign',
+  tagline: 'A message from the Graduate School',
+  preheader: 'Important updates from the WSU Graduate School',
+} as const
+
 // ============================================================
 // CONTACT INFORMATION
 // ============================================================
@@ -238,6 +245,6 @@ export const SLATE_VARIABLES = {
 export const EXPORT_DEFAULTS = {
   minify: true, // Minify HTML output by default
   strip_json: false, // Keep embedded JSON for re-import by default
-  filename_prefix: { ff: 'Friday_Focus_', briefing: 'Briefing_' },
+  filename_prefix: { ff: 'Friday_Focus_', briefing: 'Briefing_', letter: 'Slate_Campaign_' },
 } as const
 

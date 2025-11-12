@@ -38,6 +38,7 @@ import type {
   EventCard,
   ResourceCard,
   CTACard,
+  LetterCard,
   Closure,
 } from '@/types/newsletter'
 
@@ -54,6 +55,123 @@ function esc(text: string | null | undefined): string {
     "'": '&#039;',
   }
   return String(text).replace(/[&<>"']/g, (m) => map[m])
+}
+
+/**
+ * Process body HTML to add email-compatible table styles
+ * Email clients require inline styles on table elements
+ */
+function processBodyHtmlForEmail(
+  html: string,
+  tableOptions?: {
+    borderStyle?: 'none' | 'light' | 'medium' | 'bold'
+    borderColor?: string
+    fontSize?: number
+    headerBgColor?: string
+    headerUnderline?: number
+    headerUnderlineColor?: string
+  }
+): string {
+  if (!html || !html.includes('<table')) {
+    return html
+  }
+
+  // Default values
+  const borderStyle = tableOptions?.borderStyle || 'light'
+  const borderColor = tableOptions?.borderColor || BORDER_MEDIUM
+  const fontSize = tableOptions?.fontSize || 16
+  const headerBgColor = tableOptions?.headerBgColor || BG_LIGHT
+  const headerUnderline = tableOptions?.headerUnderline || 0
+  const headerUnderlineColor = tableOptions?.headerUnderlineColor || borderColor
+
+  // Calculate border width based on style
+  const borderWidth =
+    borderStyle === 'none'
+      ? 0
+      : borderStyle === 'light'
+        ? 1
+        : borderStyle === 'medium'
+          ? 2
+          : 3
+
+  // Add styles to tables, table rows, and table cells
+  let processed = html
+
+  // Style tables: add border-collapse, width, and email-safe attributes
+  const tableBorderStyle =
+    borderWidth > 0 ? `border:${borderWidth}px solid ${borderColor};` : ''
+  processed = processed.replace(
+    /<table([^>]*)>/gi,
+    (match, attrs) => {
+      // Check if style already exists
+      if (attrs.includes('style=')) {
+        // Add to existing style
+        return match.replace(
+          /style="([^"]*)"/i,
+          (styleMatch, existingStyle) => {
+            const newStyle = `${existingStyle}; ${STYLE_TABLE} ${tableBorderStyle} width:100%; max-width:100%;`
+            return `style="${newStyle}"`
+          }
+        )
+      } else {
+        // Add new style attribute
+        const newStyle = `${STYLE_TABLE} ${tableBorderStyle} width:100%; max-width:100%;`
+        return `<table style="${newStyle}"${attrs}>`
+      }
+    }
+  )
+
+  // Style table cells (td): add padding and borders with font size
+  const cellBorderStyle =
+    borderWidth > 0 ? `border:${borderWidth}px solid ${borderColor};` : ''
+  const cellStyle = `${cellBorderStyle} padding:8px; vertical-align:top; font-size:${fontSize}px;`
+  processed = processed.replace(
+    /<td([^>]*)>/gi,
+    (match, attrs) => {
+      if (attrs.includes('style=')) {
+        // Add to existing style
+        return match.replace(
+          /style="([^"]*)"/i,
+          (styleMatch, existingStyle) => {
+            const newStyle = `${existingStyle}; ${cellStyle}`
+            return `style="${newStyle}"`
+          }
+        )
+      } else {
+        // Add new style attribute
+        return `<td style="${cellStyle}"${attrs}>`
+      }
+    }
+  )
+
+  // Style table headers (th): add padding, borders, background color, and underline
+  const headerBorderStyle =
+    borderWidth > 0 ? `border:${borderWidth}px solid ${borderColor};` : ''
+  const headerUnderlineStyle =
+    headerUnderline > 0
+      ? `border-bottom:${headerUnderline}px solid ${headerUnderlineColor};`
+      : ''
+  const headerStyle = `${headerBorderStyle} padding:8px; vertical-align:top; background-color:${headerBgColor}; font-weight:bold; font-size:${fontSize}px; ${headerUnderlineStyle}`
+  processed = processed.replace(
+    /<th([^>]*)>/gi,
+    (match, attrs) => {
+      if (attrs.includes('style=')) {
+        // Add to existing style
+        return match.replace(
+          /style="([^"]*)"/i,
+          (styleMatch, existingStyle) => {
+            const newStyle = `${existingStyle}; ${headerStyle}`
+            return `style="${newStyle}"`
+          }
+        )
+      } else {
+        // Add new style attribute
+        return `<th style="${headerStyle}"${attrs}>`
+      }
+    }
+  )
+
+  return processed
 }
 
 /**
@@ -119,7 +237,7 @@ export function renderMasthead(data: Masthead, containerWidth = 640): string {
   return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_LIGHT};">
   <tr>
     <td align="center">
-      <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE};">
+      <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; border-left:1px solid ${BORDER_MEDIUM}; border-right:1px solid ${BORDER_MEDIUM}; border-top:1px solid ${BORDER_MEDIUM};">
         <tr>
           <td style="padding:${paddingStr}; text-align:${bannerAlign}; background-color:${BG_WHITE};">
             ${bannerHtml}
@@ -390,7 +508,15 @@ function renderStandardCard(
 
   // Body (allow raw HTML from rich text editor)
   if (bodyHtml) {
-    contentParts.push(`<div style="${STYLE_BODY_TEXT}">${bodyHtml}</div>`)
+    const processedBody = processBodyHtmlForEmail(bodyHtml, {
+      borderStyle: card.table_border_style,
+      borderColor: card.table_border_color,
+      fontSize: card.table_font_size,
+      headerBgColor: card.table_header_bg_color,
+      headerUnderline: card.table_header_underline,
+      headerUnderlineColor: card.table_header_underline_color,
+    })
+    contentParts.push(`<div style="${STYLE_BODY_TEXT}">${processedBody}</div>`)
   }
 
   // Meta (location/date/time)
@@ -571,6 +697,96 @@ function renderResourceCard(
 }
 
 /**
+ * Letter-style card for presidential updates
+ */
+function renderLetterCard(
+  card: LetterCard,
+  section: Section | null = null,
+  settings: Settings | null = null
+): string {
+  const greeting = (card.greeting || '').trim()
+  const bodyHtml = card.body_html || ''
+  const closing = (card.closing || '').trim()
+  const signatureName = (card.signature_name || '').trim()
+  const signatureLines = card.signature_lines || []
+  const signatureImageUrl = (card.signature_image_url || '').trim()
+  const signatureImageAlt = (card.signature_image_alt || 'Signature').trim()
+  const signatureImageWidth = card.signature_image_width || 220
+
+  const cardStyle = getCardStyle(card)
+  const padding = getCardPadding(card, section, settings)
+  const paddingStyle = `padding:${padding.top}px ${padding.right}px ${padding.bottom}px ${padding.left}px;`
+
+  const contentParts: string[] = []
+
+  if (greeting) {
+    contentParts.push(
+      `<p style="${STYLE_BODY_TEXT} margin:0 0 18px 0; font-weight:normal;">${esc(greeting)}</p>`
+    )
+  }
+
+  if (bodyHtml) {
+    const processedBody = processBodyHtmlForEmail(bodyHtml, {
+      borderStyle: card.table_border_style,
+      borderColor: card.table_border_color,
+      fontSize: card.table_font_size,
+      headerBgColor: card.table_header_bg_color,
+      headerUnderline: card.table_header_underline,
+      headerUnderlineColor: card.table_header_underline_color,
+    })
+    contentParts.push(
+      `<div style="font-size:16px; line-height:1.6; color:${TEXT_BODY}; margin:0 0 18px 0;">${processedBody}</div>`
+    )
+  }
+
+  if (closing) {
+    contentParts.push(
+      `<p style="${STYLE_BODY_TEXT} margin:24px 0 8px 0; font-weight:normal;">${esc(closing)}</p>`
+    )
+  }
+
+  if (signatureImageUrl) {
+    contentParts.push(
+      `<p style="margin:0 0 12px 0;">
+        <img src="${esc(signatureImageUrl)}" alt="${esc(signatureImageAlt)}" width="${signatureImageWidth}" 
+        style="${STYLE_IMAGE} width:${signatureImageWidth}px; max-width:100%; height:auto; display:block;" />
+      </p>`
+    )
+  }
+
+  if (signatureName) {
+    contentParts.push(
+      `<p style="${STYLE_BODY_TEXT} margin:0 0 4px 0; font-weight:bold;">${esc(signatureName)}</p>`
+    )
+  }
+
+  for (const line of signatureLines) {
+    if (line.trim()) {
+      contentParts.push(
+        `<p style="${STYLE_BODY_TEXT} margin:0 0 4px 0; font-weight:normal;">${esc(line)}</p>`
+      )
+    }
+  }
+
+  const linksHtml = renderCardLinks(card)
+  if (linksHtml) {
+    contentParts.push(
+      `<div style="margin-top:18px; font-size:14px; line-height:1.6;">${linksHtml}</div>`
+    )
+  }
+
+  const content = contentParts.join('\n')
+
+  return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${cardStyle}">
+  <tr>
+    <td style="${paddingStyle}">
+      ${content}
+    </td>
+  </tr>
+</table>`
+}
+
+/**
  * Special closures list format
  */
 function renderClosuresSection(closures: Closure[]): string {
@@ -669,11 +885,21 @@ function renderCTABox(
 
   const buttonStyle = `background-color:${buttonBgColor} !important; border-radius:${buttonBorderRadius}px; border:${border}; color:${buttonTextColor} !important; display:${display}; font-weight:bold; font-size:16px; line-height:20px; text-align:center; text-decoration:none; padding:${paddingBtn}; margin-top:24px; margin-bottom:8px; width:${width};`
 
+  const processedBody = processBodyHtmlForEmail(bodyHtml, card
+    ? {
+        borderStyle: card.table_border_style,
+        borderColor: card.table_border_color,
+        fontSize: card.table_font_size,
+        headerBgColor: card.table_header_bg_color,
+        headerUnderline: card.table_header_underline,
+        headerUnderlineColor: card.table_header_underline_color,
+      }
+    : undefined)
   return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${cardStyle}">
   <tr>
     <td style="${paddingStyle}">
       <h2 style="${STYLE_H2} margin:0 0 16px 0; text-align:${textAlignment};">${esc(title)}</h2>
-      <div style="${STYLE_BODY_TEXT} margin:0 0 8px 0; text-align:${textAlignment};">${bodyHtml}</div>
+      <div style="${STYLE_BODY_TEXT} margin:0 0 8px 0; text-align:${textAlignment};">${processedBody}</div>
       <div style="${buttonWrapperStyle}">
         <a href="${esc(buttonUrl)}" data-role="cta" style="${buttonStyle}">${esc(buttonLabel)}</a>
       </div>
@@ -685,7 +911,7 @@ function renderCTABox(
 /**
  * V7: Footer with array-based social links and configurable spacing
  */
-export function renderFooter(data: Footer): string {
+export function renderFooter(data: Footer, templateType?: 'ff' | 'briefing' | 'letter'): string {
   const addressLines = data.address_lines || []
   const social = data.social || []
 
@@ -693,6 +919,12 @@ export function renderFooter(data: Footer): string {
   const bgColor = data.background_color || '#2A3033'
   const textColor = data.text_color || '#cccccc'
   const linkColor = data.link_color || '#ffffff'
+
+  // For letter template, use white background and black text
+  const isLetterTemplate = templateType === 'letter' || bgColor === '#FFFFFF' || bgColor === '#ffffff'
+  const finalBgColor = isLetterTemplate ? '#ffffff' : bgColor
+  const finalTextColor = isLetterTemplate ? '#000000' : textColor
+  const finalLinkColor = isLetterTemplate ? '#000000' : linkColor
 
   // Spacing controls (with defaults)
   const paddingTop = data.padding_top ?? 60
@@ -754,17 +986,37 @@ export function renderFooter(data: Footer): string {
   }
 
   // Split styles - padding must be on TD, not TABLE
-  const tableStyle = `${STYLE_TABLE} background-color:${bgColor};`
-  const tdStyle = `color:${textColor}; text-align:center; padding:${paddingTop}px 20px ${paddingBottom}px 20px;`
-  const linkStyle = `color:${linkColor} !important; text-decoration:underline;`
+  const tableStyle = `${STYLE_TABLE} background-color:${finalBgColor};`
+  const tdStyle = `color:${finalTextColor}; text-align:center; padding:${paddingTop}px 20px ${paddingBottom}px 20px;`
+  const linkStyle = `color:${finalLinkColor} !important; text-decoration:underline;`
 
+  // For letter template, render simplified footer (no website link, no copyright)
+  if (isLetterTemplate) {
+    return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${tableStyle}">
+  <tr>
+    <td align="center" style="${tdStyle}">
+      ${socialTableHtml}
+      
+      <!-- Address -->
+      <p style="color:${finalTextColor}; font-size:14px; line-height:1.6; margin:0 0 8px 0;">
+        ${addressHtml}
+      </p>
+      
+      <!-- Divider -->
+      <div style="height:1px; background-color:#000000; margin:20px auto; max-width:400px;"></div>
+    </td>
+  </tr>
+</table>`
+  }
+
+  // Standard footer for other templates
   return `<table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${tableStyle}">
   <tr>
     <td align="center" style="${tdStyle}">
       ${socialTableHtml}
       
       <!-- Address -->
-      <p style="color:${textColor}; font-size:14px; line-height:1.6; margin:0 0 8px 0;">
+      <p style="color:${finalTextColor}; font-size:14px; line-height:1.6; margin:0 0 8px 0;">
         ${addressHtml}
       </p>
       
@@ -772,7 +1024,7 @@ export function renderFooter(data: Footer): string {
       <div style="height:1px; background-color:#444444; margin:20px auto; max-width:400px;"></div>
       
       <!-- Links (Unsubscribe handled by Slate) -->
-      <p style="color:${textColor}; font-size:13px; line-height:1.6; margin:15px 0;">
+      <p style="color:${finalTextColor}; font-size:13px; line-height:1.6; margin:15px 0;">
         <a href="https://gradschool.wsu.edu" data-role="footer-link" style="${linkStyle}">Graduate School website</a>
       </p>
       
@@ -865,6 +1117,8 @@ function renderSection(
       cardHtml.push(renderEventCard(card, section, settings))
     } else if (card.type === 'resource') {
       cardHtml.push(renderResourceCard(card, section, settings))
+    } else if (card.type === 'letter') {
+      cardHtml.push(renderLetterCard(card, section, settings))
     } else {
       cardHtml.push(renderStandardCard(card, section, settings))
     }
@@ -951,7 +1205,7 @@ export function renderFullEmail(data: NewsletterData): string {
     ${EMAIL_CSS}
   </style>
 </head>
-<body style="${STYLE_RESET}">
+<body style="${STYLE_RESET} background-color:${BG_LIGHT};">
   ${renderPreheader(preheaderText)}
   
   <!-- View in Browser -->
@@ -963,8 +1217,8 @@ export function renderFullEmail(data: NewsletterData): string {
   <!-- Main Content Container -->
   <table cellpadding="0" cellspacing="0" role="presentation" width="100%" style="${STYLE_TABLE} background-color:${BG_LIGHT};">
     <tr>
-      <td align="center">
-        <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; ${BORDER_MEDIUM};  ${BORDER_MEDIUM}; border-bottom:1px solid ${BORDER_MEDIUM};">
+      <td align="center" style="background-color:${BG_LIGHT};">
+        <table cellpadding="0" cellspacing="0" role="presentation" width="${containerWidth}" class="container" style="${STYLE_TABLE} background-color:${BG_WHITE}; border-left:1px solid ${BORDER_MEDIUM}; border-right:1px solid ${BORDER_MEDIUM}; border-bottom:1px solid ${BORDER_MEDIUM};">
           <tr>
             <td class="content" style="padding:18px 25px 28px; background-color:${BG_WHITE};">
               
@@ -975,8 +1229,8 @@ export function renderFullEmail(data: NewsletterData): string {
           
           <!-- Footer -->
           <tr>
-            <td>
-              ${renderFooter(footer)}
+            <td style="background-color:${BG_WHITE}; padding:0;">
+              ${renderFooter(footer, data.template)}
             </td>
           </tr>
         </table>
@@ -1022,6 +1276,42 @@ export function generatePlainText(data: NewsletterData): string {
       continue
     }
     for (const card of section.cards || []) {
+      if (card.type === 'letter') {
+        const greeting = (card.greeting || '').trim()
+        if (greeting) {
+          parts.push(greeting)
+        }
+        const bodyHtml = card.body_html || ''
+        if (bodyHtml) {
+          // Strip HTML tags
+          const text = bodyHtml.replace(/<[^>]+>/g, '')
+          parts.push(text)
+        }
+        const closing = (card.closing || '').trim()
+        if (closing) {
+          parts.push(closing)
+        }
+        const signatureName = (card.signature_name || '').trim()
+        if (signatureName) {
+          parts.push(signatureName)
+        }
+        const signatureLines = card.signature_lines || []
+        for (const line of signatureLines) {
+          if (line.trim()) {
+            parts.push(line.trim())
+          }
+        }
+        for (const link of card.links || []) {
+          const label = (link.label || '').trim()
+          const url = (link.url || '').trim()
+          if (label && url && url !== '#') {
+            parts.push(`${label}: ${url}`)
+          }
+        }
+        parts.push('')
+        continue
+      }
+
       const ctitle = card.title || ''
       if (ctitle) {
         parts.push(`\n${ctitle}`)

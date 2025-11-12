@@ -145,7 +145,9 @@ function SortableCardItem({
         <FileText className="w-5 h-5 text-wsu-text-muted flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-wsu-text-dark truncate">
-            {card.title || `Card ${cardIndex + 1} (${card.type})`}
+            {'title' in card && card.title
+              ? card.title
+              : `Card ${cardIndex + 1} (${card.type})`}
           </div>
           <div className="text-xs text-wsu-text-muted">{card.type}</div>
         </div>
@@ -296,6 +298,18 @@ export default function SectionsEditor({
   const addCard = (sectionIndex: number, cardType: Card['type']) => {
     const newCard: Card = (() => {
       switch (cardType) {
+        case 'letter':
+          return {
+            type: 'letter',
+            greeting: '',
+            body_html: '',
+            closing: '',
+            signature_name: '',
+            signature_lines: [],
+            links: [],
+            spacing_bottom: 20,
+            background_color: '#f9f9f9',
+          }
         case 'cta':
           return {
             type: 'cta',
@@ -558,7 +572,7 @@ export default function SectionsEditor({
                           <div className="space-y-2">
                             {section.cards.map((card, cardIndex) => {
                               // Create a stable key that includes the card content to help React track changes
-                              const cardKey = `${section.key || sectionIndex}-card-${cardIndex}-${card.type}-${card.title?.slice(0, 10) || ''}`
+                              const cardKey = `${section.key || sectionIndex}-card-${cardIndex}-${card.type}-${'title' in card && card.title ? card.title.slice(0, 10) : ''}`
                               return (
                                 <SortableCardItem
                                   key={cardKey}
@@ -606,6 +620,12 @@ export default function SectionsEditor({
                           className="px-2 py-1 text-xs font-medium text-wsu-crimson border border-wsu-crimson rounded-md hover:bg-wsu-crimson/10 transition-colors"
                         >
                           CTA
+                        </button>
+                        <button
+                          onClick={() => addCard(sectionIndex, 'letter')}
+                          className="px-2 py-1 text-xs font-medium text-wsu-crimson border border-wsu-crimson rounded-md hover:bg-wsu-crimson/10 transition-colors"
+                        >
+                          Letter
                         </button>
                       </div>
                     </div>

@@ -21,7 +21,7 @@ import {
 
 export default function EditorPage() {
   // All hooks must be called unconditionally at the top level
-  const [templateType, setTemplateType] = useState<'ff' | 'briefing'>('ff')
+  const [templateType, setTemplateType] = useState<'ff' | 'briefing' | 'letter'>('ff')
   const [initialData, setInitialData] = useState<NewsletterData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showValidation, setShowValidation] = useState(false)
@@ -30,7 +30,7 @@ export default function EditorPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const hasLoadedInitialPreview = useRef(false)
-  const previousTemplateRef = useRef<'ff' | 'briefing' | null>(null)
+  const previousTemplateRef = useRef<'ff' | 'briefing' | 'letter' | null>(null)
   const previousStateTemplateRef = useRef<string | null>(null)
 
   // Create a stable default model - memoize it so it doesn't change on every render
@@ -171,7 +171,7 @@ export default function EditorPage() {
     updatePreview(state)
   }
 
-  const handleTemplateChange = async (newType: 'ff' | 'briefing') => {
+  const handleTemplateChange = async (newType: 'ff' | 'briefing' | 'letter') => {
     if (
       window.confirm(
         'Switch template? This will load default content and discard current edits.'
@@ -198,7 +198,12 @@ export default function EditorPage() {
         const a = document.createElement('a')
         a.href = url
         const templateType = state.template || 'ff'
-        const prefix = templateType === 'ff' ? 'Friday_Focus_' : 'Briefing_'
+        const prefix =
+          templateType === 'ff'
+            ? 'Friday_Focus_'
+            : templateType === 'briefing'
+            ? 'Briefing_'
+            : 'Slate_Campaign_'
         const date = new Date().toISOString().slice(0, 10)
         a.download = `${prefix}${date}.html`
         document.body.appendChild(a)
